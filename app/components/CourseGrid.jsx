@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 
 const COURSES = [
   { id: 1, name: "React & Next.js 15 Bootcamp", instructor: "Marco Ricci", topic: "Development", price: 89, rating: 4.9, reviews: 2100, lessons: 48, emoji: "⚛️" },
@@ -12,17 +13,22 @@ const COURSES = [
   { id: 8, name: "Brand Identity Design", instructor: "Carlos Lima", topic: "Design", price: 49, rating: 4.5, reviews: 310, lessons: 22, emoji: "✏️" },
 ];
 
+const toSlug = (name) =>
+  name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
 const fmt = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + "k" : n);
 
 export default function CourseGrid() {
   const [liked, setLiked] = useState(new Set());
 
-  const toggleLike = (id) =>
+  const toggleLike = (e, id) => {
+    e.preventDefault();
     setLiked((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
 
   return (
     <div className="px-10 py-8">
@@ -31,14 +37,15 @@ export default function CourseGrid() {
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
         {COURSES.map((course) => (
-          <div
+          <Link
             key={course.id}
-            className="bg-[#13131A] border border-white/10 rounded-xl overflow-hidden hover:-translate-y-1 transition-transform cursor-pointer"
+            href={`/courses/${toSlug(course.name)}`}
+            className="bg-[#13131A] border border-white/10 rounded-xl overflow-hidden hover:-translate-y-1 transition-transform cursor-pointer no-underline block"
           >
             <div className="h-32 bg-indigo-950 flex items-center justify-center relative">
               <span className="text-4xl">{course.emoji}</span>
               <button
-                onClick={() => toggleLike(course.id)}
+                onClick={(e) => toggleLike(e, course.id)}
                 className={`absolute top-2 right-2 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-sm transition ${
                   liked.has(course.id) ? "text-red-400" : "text-white/50 hover:text-white"
                 }`}
@@ -59,7 +66,7 @@ export default function CourseGrid() {
                 <p className="text-indigo-400 font-bold text-base">${course.price}</p>
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </div>

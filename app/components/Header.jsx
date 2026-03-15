@@ -14,9 +14,8 @@ export default function Header() {
         </div>
         <nav className="flex items-center gap-6">
           <a href="#" className="text-sm text-white/50 hover:text-white transition">Orders</a>
-          <a href="#" className="text-sm text-white/50 hover:text-white transition">Sign in</a>
           <button className="border border-indigo-500 text-indigo-400 px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 hover:text-white transition">
-            Become a member
+            <a href="/auth">Become a member</a>
           </button>
         </nav>
       </header>
