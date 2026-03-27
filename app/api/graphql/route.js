@@ -3,6 +3,7 @@ import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin
 import { startServerAndCreateNextHandler } from "@as-integrations/next";
 import { typeDefs } from "../../../lib/graphql/typedefs";
 import { resolvers } from "../../../lib/graphql/resolvers";
+import connect from "../../../lib/db"; // ← add this
 
 const server = new ApolloServer({
   introspection: true,
@@ -16,7 +17,10 @@ const server = new ApolloServer({
 await server.start();
 
 const handler = startServerAndCreateNextHandler(server, {
-  context: async () => ({}),
+  context: async () => {
+    await connect(); // ← add this
+    return {};
+  },
 });
 
 export const GET = handler;

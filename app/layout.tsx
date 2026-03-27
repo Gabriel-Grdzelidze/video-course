@@ -1,12 +1,14 @@
+// app/layout.tsx
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ApolloWrapper } from "../lib/apolloWrapper";
+import Providers from "./components/provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-});
+}); 
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -26,9 +28,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ApolloWrapper>
-          {children}
-        </ApolloWrapper>
+        <Providers>
+          <ApolloWrapper>
+            {children}
+          </ApolloWrapper>
+        </Providers>
       </body>
     </html>
   );
