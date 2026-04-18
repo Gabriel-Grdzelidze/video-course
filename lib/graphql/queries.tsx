@@ -17,10 +17,17 @@ export const GET_COURSES = gql`
         count
       }
       tags
+      instructor {
+        name
+      }
+      sections {
+        lessons {
+          id
+        }
+      }
     }
   }
 `;
-
 export const GET_PUBLISHED_COURSES = gql`
   query GetPublishedCourses {
     getPublishedCourses {
@@ -225,6 +232,86 @@ export const GET_PROGRESS = gql`
       completedLessons
       lastWatchedLesson
       completionPercentage
+    }
+  }
+`;
+export const GET_INSTRUCTOR_INFO = gql`
+  query GetInstructorInfo($userId: ID!) {
+    getInstructorByUser(userId: $userId) {
+      id
+      bio
+      website
+      expertise
+      isApproved
+      rating {
+        average
+        count
+      }
+      totalStudents
+    }
+  }
+`;
+
+export const GET_MY_COURSES = gql`
+  query GetMyCourses {
+    getInstructorCourses {
+      id
+      title
+      slug
+      topic
+      level
+      price
+      isFree
+      isPublished
+      thumbnail
+      rating {
+        average
+        count
+      }
+    }
+  }
+`;
+export const GET_COURSE_BY_ID = gql`
+  query GetCourseById($id: ID!) {
+    getCourseById(id: $id) {
+      id
+      title
+      slug
+      description
+      thumbnail
+      price
+      isFree
+      topic
+      level
+      isPublished
+      rating {
+        average
+        count
+      }
+      tags
+      sections {
+        id
+        title
+        order
+        lessons {
+          id
+          title
+          duration
+          isFree
+          isQuiz
+          order
+        }
+      }
+    }
+  }
+`;
+export const GET_ALL_USERS = gql`
+  query GetAllUsers {
+    getAllUsers {
+      id
+      name
+      email
+      image
     }
   }
 `;

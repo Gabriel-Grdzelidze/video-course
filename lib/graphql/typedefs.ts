@@ -25,6 +25,8 @@ export const typeDefs = gql`
     image: String
   }
 
+
+  
   type AuthPayload {
     token: String!
     user: User!
@@ -46,27 +48,27 @@ export const typeDefs = gql`
   }
 
   type Admin {
-    id: ID!
-    user: User!
-    permissions: [String]
-    isSuperAdmin: Boolean!
-  }
+  id: ID!
+  user: User!
+}
+
 
   type Course {
-    id: ID!
-    title: String!
-    slug: String!
-    description: String!
-    thumbnail: String
-    price: Float!
-    isFree: Boolean!
-    topic: String!
-    level: String!
-    rating: Rating
-    isPublished: Boolean!
-    tags: [String]
-    sections: [Section]
-  }
+  id: ID!
+  title: String!
+  slug: String!
+  description: String!
+  thumbnail: String
+  price: Float!
+  isFree: Boolean!
+  topic: String!
+  level: String!
+  rating: Rating
+  isPublished: Boolean!
+  tags: [String]
+  sections: [Section]
+  instructor: User
+}
 
   type Section {
     id: ID!
@@ -140,6 +142,7 @@ export const typeDefs = gql`
   }
 
   type Query {
+    getInstructorCourses: [Course]
     getUsers: [User]
     getUser(id: ID!): User
     getUserByEmail(email: String!): User

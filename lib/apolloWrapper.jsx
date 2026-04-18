@@ -8,6 +8,6 @@ const client = new ApolloClient({
   cache: new InMemoryCache(),
 });
 
-export function ApolloWrapper({ children }) {
+export default function ApolloWrapper({ children }) {
   return <ApolloProvider client={client}>{children}</ApolloProvider>;
 }

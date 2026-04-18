@@ -47,6 +47,8 @@ export default function NewCoursePage() {
 
   const [createCourse, { loading }] = useMutation(CREATE_COURSE);
 
+  
+
   const set = (key: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       const value = e.target.value;
@@ -119,7 +121,7 @@ export default function NewCoursePage() {
           tags,
         },
       });
-      router.push(`/instructor/courses/${data.createCourse.id}`);
+      router.push(`/learn/${id}`)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     }

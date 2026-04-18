@@ -2,13 +2,14 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ApolloWrapper } from "../lib/apolloWrapper";
+import  ApolloWrapper  from "../lib/apolloWrapper";
 import Providers from "./components/provider";
+import AIChatbot from "./components/AIChatbot"; // ← add this
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-}); 
+});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -31,6 +32,7 @@ export default function RootLayout({
         <Providers>
           <ApolloWrapper>
             {children}
+            <AIChatbot /> 
           </ApolloWrapper>
         </Providers>
       </body>

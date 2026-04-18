@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Overview from "../components/dashboard/Overview";
 import Users from "../components/dashboard/Users";
 import Courses from "../components/dashboard/Courses";
@@ -13,6 +15,27 @@ const NAV = [
 
 export default function AdminDashboard() {
   const [active, setActive] = useState("overview");
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === "loading") return;
+    if ((session?.user as any)?.role !== "admin") {
+      router.replace("/");
+    }
+  }, [session, status]);
+
+  if (status === "loading") {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0d0d1a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ color: "#606080" }}>Loading...</p>
+      </div>
+    );
+  }
+
+  if ((session?.user as any)?.role !== "admin") {
+    return null;
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: "#0d0d1a", color: "#e0e0f0", fontFamily: "'Inter', sans-serif", display: "flex" }}>
@@ -54,7 +77,9 @@ export default function AdminDashboard() {
 
         <div style={{ padding: "1rem 1.25rem", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
           <p style={{ color: "#505070", fontSize: "0.75rem", margin: 0 }}>Logged in as</p>
-          <p style={{ color: "#a0a0c0", fontSize: "0.82rem", fontWeight: 600, margin: "2px 0 0" }}>Admin</p>
+          <p style={{ color: "#a0a0c0", fontSize: "0.82rem", fontWeight: 600, margin: "2px 0 0" }}>
+            {session.user?.name}
+          </p>
         </div>
       </aside>
 
