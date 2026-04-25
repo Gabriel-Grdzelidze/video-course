@@ -22,7 +22,7 @@ export const typeDefs = gql`
     id: ID!
     name: String!
     email: String!
-    image: String
+    avatar: String
   }
 
 
@@ -184,15 +184,16 @@ export const typeDefs = gql`
   }
 
   type Mutation {
-    signUpUser(name: String!, email: String!, password: String!): AuthPayload!
-    signUpInstructor(
-      name: String!
-      email: String!
-      password: String!
-      bio: String
-      website: String
-      expertise: [String]
-    ): AuthPayload!
+    signUpUser(name: String!, email: String!, password: String!, avatar: String): AuthPayload!
+signUpInstructor(
+  name: String!
+  email: String!
+  password: String!
+  avatar: String
+  bio: String
+  website: String
+  expertise: [String]
+): AuthPayload!
     signIn(email: String!, password: String!): AuthPayload!
 
     updateUser(id: ID!, name: String, image: String): User

@@ -93,9 +93,18 @@ export default function ProfilePage() {
           <div className="absolute inset-0 opacity-[0.025]"
             style={{backgroundImage:'linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)',backgroundSize:'32px 32px'}}/>
           <div className="relative flex items-center gap-6">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-500 flex items-center justify-center text-2xl font-bold shrink-0">
-              {initials}
-            </div>
+          <div className="w-16 h-16 rounded-2xl bg-indigo-500 flex items-center justify-center text-2xl font-bold shrink-0 overflow-hidden">
+  {(session?.user as { avatar?: string })?.avatar ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={(session?.user as { avatar?: string }).avatar!}
+      alt={session?.user?.name ?? ""}
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    initials
+  )}
+</div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 mb-1 flex-wrap">
                 <h1 className="text-xl font-bold tracking-tight">{session?.user?.name}</h1>

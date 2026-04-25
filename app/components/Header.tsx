@@ -10,18 +10,17 @@ export default function Header() {
   const [search, setSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const isAdmin = (session?.user as { role?: string })?.role === "admin";
 
-  const isInstructor =
-    (session?.user as { role?: string })?.role === "instructor";
+  const isAdmin = (session?.user as { role?: string })?.role === "admin";
+  const isInstructor = (session?.user as { role?: string })?.role === "instructor";
   const profileHref = isInstructor ? "/instructor/me" : "/profile";
+  const userAvatar = (session?.user as { avatar?: string })?.avatar || (session?.user as { image?: string })?.image;
+console.log("userAvatar:", userAvatar); // ← add this
+console.log("full session:", JSON.stringify(session?.user));  // ← and this
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
       }
     }
@@ -46,10 +45,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between px-10 h-16 bg-[#0A0A0F]/95 border-b border-white/10 backdrop-blur-md">
       {/* logo */}
-      <Link
-        href="/"
-        className="flex items-center gap-2 font-extrabold text-xl text-white shrink-0"
-      >
+      <Link href="/" className="flex items-center gap-2 font-extrabold text-xl text-white shrink-0">
         <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
         LearnFlow
       </Link>
@@ -68,10 +64,7 @@ export default function Header() {
 
       {/* nav */}
       <nav className="flex items-center gap-6">
-        <Link
-          href="/orders"
-          className="text-sm text-white/50 hover:text-white transition"
-        >
+        <Link href="/orders" className="text-sm text-white/50 hover:text-white transition">
           Orders
         </Link>
 
@@ -82,45 +75,46 @@ export default function Header() {
               onClick={() => setDropdownOpen((p) => !p)}
               className="flex items-center gap-2 text-sm font-medium text-white border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/5 transition cursor-pointer bg-transparent"
             >
-              <span className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-[11px] font-bold shrink-0">
-                {initials}
+              <span className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-[11px] font-bold shrink-0 overflow-hidden">
+                {userAvatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={userAvatar} alt={session.user?.name ?? ""} className="w-full h-full object-cover" />
+                ) : (
+                  initials
+                )}
               </span>
-              <span className="max-w-[120px] truncate">
-                {session.user?.name}
-              </span>
+              <span className="max-w-[120px] truncate">{session.user?.name}</span>
               {isInstructor && (
                 <span className="text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/25 px-1.5 py-0.5 rounded-md">
                   PRO
                 </span>
               )}
               <svg
-                className={`w-3.5 h-3.5 text-white/35 transition-transform duration-200 ${
-                  dropdownOpen ? "rotate-180" : ""
-                }`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+                className={`w-3.5 h-3.5 text-white/35 transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
 
             {/* dropdown */}
             {dropdownOpen && (
               <div className="absolute right-0 mt-2 w-56 bg-[#13131A] border border-white/10 rounded-xl shadow-2xl shadow-black/40 overflow-hidden z-50">
+
                 {/* user info */}
-                <div className="px-4 py-3 border-b border-white/[0.07]">
-                  <p className="text-sm font-semibold text-white truncate">
-                    {session.user?.name}
-                  </p>
-                  <p className="text-[12px] text-white/35 truncate">
-                    {session.user?.email}
-                  </p>
+                <div className="px-4 py-3 border-b border-white/[0.07] flex items-center gap-3">
+                  <span className="w-9 h-9 rounded-full bg-indigo-500 flex items-center justify-center text-sm font-bold shrink-0 overflow-hidden" style={{padding: 0, lineHeight: 0}}>
+                    {userAvatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={userAvatar} alt={session.user?.name ?? ""} className="w-full h-full object-cover" />
+                    ) : (
+                      initials
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{session.user?.name}</p>
+                    <p className="text-[12px] text-white/35 truncate">{session.user?.email}</p>
+                  </div>
                 </div>
 
                 {/* links */}
@@ -128,14 +122,7 @@ export default function Header() {
                   <DropdownLink
                     href={profileHref}
                     icon={
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="12" cy="8" r="4" />
                         <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
                       </svg>
@@ -147,14 +134,7 @@ export default function Header() {
                   <DropdownLink
                     href="/learn"
                     icon={
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <rect x="3" y="3" width="7" height="7" rx="1" />
                         <rect x="14" y="3" width="7" height="7" rx="1" />
                         <rect x="3" y="14" width="7" height="7" rx="1" />
@@ -171,14 +151,7 @@ export default function Header() {
                       <DropdownLink
                         href="/instructor/me"
                         icon={
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
                             <polyline points="9 22 9 12 15 12 15 22" />
                           </svg>
@@ -190,14 +163,7 @@ export default function Header() {
                       <DropdownLink
                         href="/addcourse"
                         icon={
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <circle cx="12" cy="12" r="10" />
                             <line x1="12" y1="8" x2="12" y2="16" />
                             <line x1="8" y1="12" x2="16" y2="12" />
@@ -209,20 +175,14 @@ export default function Header() {
                       </DropdownLink>
                     </>
                   )}
+
                   {isAdmin && (
                     <>
                       <div className="mx-3 my-1 border-t border-white/[0.07]" />
                       <DropdownLink
                         href="/adminPage"
                         icon={
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                           </svg>
                         }
@@ -237,20 +197,10 @@ export default function Header() {
                 {/* sign out */}
                 <div className="border-t border-white/[0.07] py-1">
                   <button
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      signOut();
-                    }}
+                    onClick={() => { setDropdownOpen(false); signOut(); }}
                     className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-400 hover:bg-red-500/8 transition cursor-pointer bg-transparent"
                   >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
                       <polyline points="16 17 21 12 16 7" />
                       <line x1="21" y1="12" x2="9" y2="12" />
@@ -275,10 +225,7 @@ export default function Header() {
 }
 
 function DropdownLink({
-  href,
-  icon,
-  children,
-  accent = false,
+  href, icon, children, accent = false,
 }: {
   href: string;
   icon: React.ReactNode;
@@ -289,15 +236,9 @@ function DropdownLink({
     <Link
       href={href}
       className={`flex items-center gap-3 px-4 py-2 text-sm transition
-        ${
-          accent
-            ? "text-indigo-300 hover:bg-indigo-500/8"
-            : "text-white/70 hover:text-white hover:bg-white/5"
-        }`}
+        ${accent ? "text-indigo-300 hover:bg-indigo-500/8" : "text-white/70 hover:text-white hover:bg-white/5"}`}
     >
-      <span className={accent ? "text-indigo-400" : "text-white/35"}>
-        {icon}
-      </span>
+      <span className={accent ? "text-indigo-400" : "text-white/35"}>{icon}</span>
       {children}
     </Link>
   );

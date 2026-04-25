@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation } from "@apollo/client/react";
 import { useRouter } from "next/navigation";
 import { SIGN_UP_USER, SIGN_UP_INSTRUCTOR } from "../../lib/graphql/mutations";
+import { uploadToS3 } from "../../lib/s3-upload";
 
 const ROLES = [
   { value: "user", label: "Student", desc: "I want to learn" },
@@ -31,6 +32,8 @@ export default function SignUp({ onSwitch }) {
   const [role, setRole] = useState("user");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [file, setFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -43,7 +46,7 @@ export default function SignUp({ onSwitch }) {
 
   const [signUpUser, { loading: loadingUser }] = useMutation(SIGN_UP_USER);
   const [signUpInstructor, { loading: loadingInstructor }] = useMutation(SIGN_UP_INSTRUCTOR);
-  const loading = loadingUser || loadingInstructor;
+  const loading = loadingUser || loadingInstructor || isUploading;
 
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -54,14 +57,28 @@ export default function SignUp({ onSwitch }) {
     e.preventDefault();
     setError("");
     setSuccess("");
+
     if (form.password !== form.confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
+
+    setIsUploading(true);
+
     try {
+      let imageUrl = "";
+      if (file) {
+        imageUrl = await uploadToS3(file);
+      }
+
       if (role === "user") {
         const { data } = await signUpUser({
-          variables: { name: form.name, email: form.email, password: form.password },
+          variables: { 
+            name: form.name, 
+            email: form.email, 
+            password: form.password,
+            avatar: imageUrl 
+          },
         });
         localStorage.setItem("token", data.signUpUser.token);
       } else {
@@ -73,6 +90,7 @@ export default function SignUp({ onSwitch }) {
             name: form.name,
             email: form.email,
             password: form.password,
+            avatar: imageUrl,
             bio: form.bio || null,
             website: form.website || null,
             expertise,
@@ -84,6 +102,8 @@ export default function SignUp({ onSwitch }) {
       setTimeout(() => router.push("/"), 1500);
     } catch (err) {
       setError(err.message || "Something went wrong.");
+    } finally {
+      setIsUploading(false);
     }
   }
 
@@ -92,7 +112,6 @@ export default function SignUp({ onSwitch }) {
 
   return (
     <>
-      {/* inject scrollbar styles */}
       <style>{scrollbarStyles}</style>
 
       <div className="signup-scroll flex flex-col h-full overflow-y-auto pr-1">
@@ -101,7 +120,6 @@ export default function SignUp({ onSwitch }) {
           <p className="mt-1 text-sm text-slate-500">Join thousands of learners today.</p>
         </div>
 
-        {/* Role picker */}
         <div className="mb-5 grid grid-cols-2 gap-2">
           {ROLES.map((r) => (
             <button
@@ -124,6 +142,16 @@ export default function SignUp({ onSwitch }) {
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-3.5">
           <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-slate-400">Profile Picture</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-slate-400">Full Name</label>
             <input
               name="name"
@@ -132,7 +160,6 @@ export default function SignUp({ onSwitch }) {
               value={form.name}
               onChange={handleChange}
               required
-              autoComplete="name"
               className={inputClass}
             />
           </div>
@@ -146,7 +173,6 @@ export default function SignUp({ onSwitch }) {
               value={form.email}
               onChange={handleChange}
               required
-              autoComplete="email"
               className={inputClass}
             />
           </div>
@@ -160,7 +186,6 @@ export default function SignUp({ onSwitch }) {
               value={form.password}
               onChange={handleChange}
               required
-              autoComplete="new-password"
               className={inputClass}
             />
           </div>
@@ -174,7 +199,6 @@ export default function SignUp({ onSwitch }) {
               value={form.confirmPassword}
               onChange={handleChange}
               required
-              autoComplete="new-password"
               className={inputClass}
             />
           </div>
@@ -221,24 +245,14 @@ export default function SignUp({ onSwitch }) {
             </>
           )}
 
-          {success && (
-            <p className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3.5 py-2.5 text-xs text-emerald-400">
-              ✓ {success}
-            </p>
-          )}
-
-          {error && (
-            <p className="rounded-lg border border-red-400/20 bg-red-400/10 px-3.5 py-2.5 text-xs text-red-400">
-              {error}
-            </p>
-          )}
+         
 
           <button
             type="submit"
             disabled={loading || !!success}
             className="mt-1 w-full rounded-lg bg-indigo-600 py-3 text-sm font-semibold text-white transition hover:-translate-y-px hover:bg-indigo-500 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "Creating account…" : `Create ${role === "instructor" ? "Instructor" : "Student"} Account →`}
+            {isUploading ? "Uploading Picture..." : loading ? "Creating account…" : `Create ${role === "instructor" ? "Instructor" : "Student"} Account →`}
           </button>
         </form>
 

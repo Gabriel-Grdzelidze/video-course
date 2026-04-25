@@ -109,9 +109,7 @@ export const resolvers = {
       return !!enrollment;
     },
     getInstructorCourses: async (_: unknown, __: unknown, context: any) => {
-      console.log("user from context:", context.user);
       const courses = await Course.find({ instructor: context.user.id });
-      console.log("courses found:", courses.length);
       return courses;
     },
 
@@ -128,69 +126,34 @@ export const resolvers = {
     ) =>
       await Review.findOne({ user: userId, course: courseId }).populate("user"),
 
-    getProgress: async (
+    getProgress: async (  
       _: unknown,
       { userId, courseId }: { userId: string; courseId: string }
     ) => await Progress.findOne({ user: userId, course: courseId }),
   },
-  
 
   Mutation: {
-    signUpUser: async (
-      _: unknown,
-      {
-        name,
-        email,
-        password,
-      }: { name: string; email: string; password: string }
-    ) => {
+    signUpUser: async (_: unknown, { name, email, password, avatar }: { 
+      name: string; email: string; password: string; avatar?: string 
+    }) => {
       const existing = await User.findOne({ email });
-      if (existing)
-        throw new Error("An account with this email already exists.");
-      const user = await User.create({ name, email, password });
-      const token = jwt.sign({ userId: user._id, role: "user" }, JWT_SECRET, {
-        expiresIn: "7d",
-      });
+      if (existing) throw new Error("An account with this email already exists.");
+      const user = await User.create({ name, email, password, avatar });
+      const token = jwt.sign({ userId: user._id, role: "user" }, JWT_SECRET, { expiresIn: "7d" });
       return { token, user };
     },
-
-    signUpInstructor: async (
-      _: unknown,
-      {
-        name,
-        email,
-        password,
-        bio,
-        website,
-        expertise,
-      }: {
-        name: string;
-        email: string;
-        password: string;
-        bio?: string;
-        website?: string;
-        expertise?: string[];
-      }
-    ) => {
+    
+    signUpInstructor: async (_: unknown, { name, email, password, avatar, bio, website, expertise }: {
+      name: string; email: string; password: string; avatar?: string;
+      bio?: string; website?: string; expertise?: string[];
+    }) => {
       const existing = await User.findOne({ email });
-      if (existing)
-        throw new Error("An account with this email already exists.");
-      const user = await User.create({ name, email, password });
-      await Instructor.create({
-        user: user._id,
-        bio,
-        website,
-        expertise: expertise ?? [],
-        isApproved: false,
-      });
-      const token = jwt.sign(
-        { userId: user._id, role: "instructor" },
-        JWT_SECRET,
-        { expiresIn: "7d" }
-      );
+      if (existing) throw new Error("An account with this email already exists.");
+      const user = await User.create({ name, email, password, avatar });
+      await Instructor.create({ user: user._id, bio, website, avatar, expertise: expertise ?? [], isApproved: false });
+      const token = jwt.sign({ userId: user._id, role: "instructor" }, JWT_SECRET, { expiresIn: "7d" });
       return { token, user };
     },
-
     signIn: async (
       _: unknown,
       { email, password }: { email: string; password: string }
@@ -258,17 +221,37 @@ export const resolvers = {
       context: any
     ) => {
       if (!context.user) throw new Error("Not authenticated");
-
       const course = new Course({
         ...args,
-        instructor: context.user.id, // ← from NextAuth session
+        instructor: context.user.id,
       });
       return await course.save();
     },
-    updateCourse: async (
-      _: unknown,
-      { id, ...args }: { id: string; [key: string]: unknown }
-    ) => await Course.findByIdAndUpdate(id, args, { new: true }),
+    updateCourse: async (_: unknown, { id, lessons, ...rest }: any) => {
+      try {
+        const updatedCourse = await Course.findByIdAndUpdate(
+          id,
+          { $set: rest },
+          { new: true }
+        );
+
+        if (lessons) {
+          await Lesson.deleteMany({ course: id });
+          const createdLessons = await Lesson.insertMany(
+            lessons.map((lesson: any, index: number) => ({
+              ...lesson,
+              course: id,
+              order: index + 1
+            }))
+          );
+          updatedCourse.lessons = createdLessons.map(l => l._id);
+          await updatedCourse.save();
+        }
+        return updatedCourse;
+      } catch (error) {
+        throw new Error("Database update failed");
+      }
+    },
     publishCourse: async (_: unknown, { id }: { id: string }) =>
       await Course.findByIdAndUpdate(id, { isPublished: true }, { new: true }),
     unpublishCourse: async (_: unknown, { id }: { id: string }) =>
@@ -292,11 +275,7 @@ export const resolvers = {
 
     createSection: async (
       _: unknown,
-      {
-        title,
-        order,
-        courseId,
-      }: { title: string; order: number; courseId: string }
+      { title, order, courseId }: { title: string; order: number; courseId: string }
     ) => await Section.create({ title, order, course: courseId }),
     updateSection: async (
       _: unknown,
@@ -310,23 +289,15 @@ export const resolvers = {
 
     createLesson: async (
       _: unknown,
-      {
-        courseId,
-        sectionId,
-        ...args
-      }: { courseId: string; sectionId: string; [key: string]: unknown }
+      { courseId, sectionId, ...args }: { courseId: string; sectionId: string; [key: string]: unknown }
     ) => {
       const lesson = await Lesson.create({
         course: courseId,
         section: sectionId,
         ...args,
       });
-      await Section.findByIdAndUpdate(sectionId, {
-        $push: { lessons: lesson._id },
-      });
-      await Course.findByIdAndUpdate(courseId, {
-        $push: { lessons: lesson._id },
-      });
+      await Section.findByIdAndUpdate(sectionId, { $push: { lessons: lesson._id } });
+      await Course.findByIdAndUpdate(courseId, { $push: { lessons: lesson._id } });
       return lesson;
     },
     updateLesson: async (
@@ -336,12 +307,8 @@ export const resolvers = {
     deleteLesson: async (_: unknown, { id }: { id: string }) => {
       const lesson = await Lesson.findById(id);
       if (lesson) {
-        await Section.findByIdAndUpdate(lesson.section, {
-          $pull: { lessons: id },
-        });
-        await Course.findByIdAndUpdate(lesson.course, {
-          $pull: { lessons: id },
-        });
+        await Section.findByIdAndUpdate(lesson.section, { $pull: { lessons: id } });
+        await Course.findByIdAndUpdate(lesson.course, { $pull: { lessons: id } });
         await Lesson.findByIdAndDelete(id);
       }
       return "Lesson deleted successfully";
@@ -349,11 +316,7 @@ export const resolvers = {
 
     createQuiz: async (
       _: unknown,
-      {
-        lessonId,
-        courseId,
-        ...args
-      }: { lessonId: string; courseId: string; [key: string]: unknown }
+      { lessonId, courseId, ...args }: { lessonId: string; courseId: string; [key: string]: unknown }
     ) => await Quiz.create({ lesson: lessonId, course: courseId, ...args }),
     updateQuiz: async (
       _: unknown,
@@ -366,22 +329,11 @@ export const resolvers = {
 
     enrollUser: async (
       _: unknown,
-      {
-        userId,
-        courseId,
-        paidAmount = 0,
-      }: { userId: string; courseId: string; paidAmount?: number }
+      { userId, courseId, paidAmount = 0 }: { userId: string; courseId: string; paidAmount?: number }
     ) => {
-      const existing = await Enrollment.findOne({
-        user: userId,
-        course: courseId,
-      });
-      if (existing) throw new Error("User is already enrolled in this course.");
-      const enrollment = await Enrollment.create({
-        user: userId,
-        course: courseId,
-        paidAmount,
-      });
+      const existing = await Enrollment.findOne({ user: userId, course: courseId });
+      if (existing) throw new Error("User is already enrolled.");
+      const enrollment = await Enrollment.create({ user: userId, course: courseId, paidAmount });
       return await enrollment.populate(["user", "course"]);
     },
     unenrollUser: async (
@@ -394,34 +346,20 @@ export const resolvers = {
 
     createReview: async (
       _: unknown,
-      {
-        userId,
-        courseId,
-        rating,
-        comment,
-      }: { userId: string; courseId: string; rating: number; comment: string }
+      { userId, courseId, rating, comment }: { userId: string; courseId: string; rating: number; comment: string }
     ) => {
       const existing = await Review.findOne({ user: userId, course: courseId });
-      if (existing) throw new Error("You have already reviewed this course.");
-      const review = await Review.create({
-        user: userId,
-        course: courseId,
-        rating,
-        comment,
-      });
+      if (existing) throw new Error("Already reviewed.");
+      const review = await Review.create({ user: userId, course: courseId, rating, comment });
       const reviews = await Review.find({ course: courseId });
-      const average =
-        reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
-      await Course.findByIdAndUpdate(courseId, {
-        rating: { average, count: reviews.length },
-      });
+      const average = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+      await Course.findByIdAndUpdate(courseId, { rating: { average, count: reviews.length } });
       return await review.populate("user");
     },
     updateReview: async (
       _: unknown,
       { id, ...args }: { id: string; [key: string]: unknown }
-    ) =>
-      await Review.findByIdAndUpdate(id, args, { new: true }).populate("user"),
+    ) => await Review.findByIdAndUpdate(id, args, { new: true }).populate("user"),
     deleteReview: async (_: unknown, { id }: { id: string }) => {
       await Review.findByIdAndDelete(id);
       return "Review deleted successfully";
@@ -434,9 +372,7 @@ export const resolvers = {
       if (!review) throw new Error("Review not found.");
       const liked = review.likes.map(String).includes(userId);
       if (liked) {
-        review.likes = review.likes.filter(
-          (id: unknown) => String(id) !== userId
-        );
+        review.likes = review.likes.filter((id: unknown) => String(id) !== userId);
       } else {
         review.likes.push(userId);
       }
@@ -446,65 +382,32 @@ export const resolvers = {
 
     updateProgress: async (
       _: unknown,
-      {
-        userId,
-        courseId,
-        lessonId,
-        seconds,
-      }: {
-        userId: string;
-        courseId: string;
-        lessonId: string;
-        seconds?: number;
-      }
+      { userId, courseId, lessonId, seconds }: { userId: string; courseId: string; lessonId: string; seconds?: number }
     ) => {
       let progress = await Progress.findOne({ user: userId, course: courseId });
       if (!progress) {
-        progress = await Progress.create({
-          user: userId,
-          course: courseId,
-          completedLessons: [],
-          watchTime: [],
-        });
+        progress = await Progress.create({ user: userId, course: courseId, completedLessons: [], watchTime: [] });
       }
       progress.lastWatchedLesson = lessonId;
-      const existing = progress.watchTime.find(
-        (w: { lesson: unknown; seconds: number }) =>
-          String(w.lesson) === lessonId
-      );
-      if (existing) {
-        existing.seconds = seconds;
-      } else {
-        progress.watchTime.push({ lesson: lessonId, seconds });
-      }
+      const existing = progress.watchTime.find((w: any) => String(w.lesson) === lessonId);
+      if (existing) { existing.seconds = seconds; } 
+      else { progress.watchTime.push({ lesson: lessonId, seconds }); }
       await progress.save();
       return progress;
     },
     markLessonComplete: async (
       _: unknown,
-      {
-        userId,
-        courseId,
-        lessonId,
-      }: { userId: string; courseId: string; lessonId: string }
+      { userId, courseId, lessonId }: { userId: string; courseId: string; lessonId: string }
     ) => {
       let progress = await Progress.findOne({ user: userId, course: courseId });
       if (!progress) {
-        progress = await Progress.create({
-          user: userId,
-          course: courseId,
-          completedLessons: [],
-          watchTime: [],
-        });
+        progress = await Progress.create({ user: userId, course: courseId, completedLessons: [], watchTime: [] });
       }
       if (!progress.completedLessons.map(String).includes(lessonId)) {
         progress.completedLessons.push(lessonId);
       }
       const totalLessons = await Lesson.countDocuments({ course: courseId });
-      progress.completionPercentage =
-        totalLessons > 0
-          ? Math.round((progress.completedLessons.length / totalLessons) * 100)
-          : 0;
+      progress.completionPercentage = totalLessons > 0 ? Math.round((progress.completedLessons.length / totalLessons) * 100) : 0;
       await progress.save();
       return progress;
     },

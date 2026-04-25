@@ -1,8 +1,9 @@
 'use client'
 import { useSession } from "next-auth/react";
-import { useQuery } from "@apollo/client/react";
+import { useQuery, useMutation } from "@apollo/client/react";
 import Link from "next/link";
 import { GET_INSTRUCTOR_INFO, GET_MY_COURSES } from "../../../lib/graphql/queries";
+import { DELETE_COURSE } from "../../../lib/graphql/mutations";
 
 const TOPIC_COLORS: Record<string, string> = {
   "Development":  "bg-blue-500/15 text-blue-300 border-blue-500/25",
@@ -27,7 +28,6 @@ interface Course {
   rating?: { average: number; count: number };
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function InstructorDashboard() {
   const { data: session } = useSession();
   const userId = (session?.user as { id?: string })?.id;
@@ -37,7 +37,7 @@ export default function InstructorDashboard() {
     skip: !userId,
   });
 
-  const { data: coursesData, loading: l2 } = useQuery(GET_MY_COURSES);
+  const { data: coursesData, loading: l2, refetch } = useQuery(GET_MY_COURSES);
 
   const instructor = instructorData?.getInstructorByUser;
   const courses: Course[] = coursesData?.getInstructorCourses ?? [];
@@ -47,8 +47,13 @@ export default function InstructorDashboard() {
   const totalStudents = instructor?.totalStudents ?? 0;
   const avgRating = instructor?.rating?.average?.toFixed(1) ?? "—";
 
+  const userImage = session?.user?.avatar;
   const initials = session?.user?.name
-    ?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() ?? "?";
+    ?.split(" ")
+    .map((n: string) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() ?? "?";
 
   if (loading) return <DashboardSkeleton />;
 
@@ -56,7 +61,6 @@ export default function InstructorDashboard() {
     <div className="min-h-screen bg-[#0a0a0f] text-white">
       <div className="max-w-6xl mx-auto px-8 py-10">
 
-        {/* Profile banner */}
         <div className="relative bg-[#12121a] border border-white/[0.07] rounded-2xl p-8 mb-8 overflow-hidden">
           <div
             className="absolute inset-0 opacity-[0.03]"
@@ -64,8 +68,16 @@ export default function InstructorDashboard() {
           />
           <div className="relative flex items-start justify-between gap-6">
             <div className="flex items-center gap-5">
-              <div className="w-16 h-16 rounded-2xl bg-indigo-500 flex items-center justify-center text-2xl font-bold shrink-0">
-                {initials}
+              <div className="w-16 h-16 rounded-2xl bg-indigo-500 flex items-center justify-center text-2xl font-bold shrink-0 overflow-hidden border border-white/10">
+                {userImage ? (
+                  <img 
+                    src={userImage} 
+                    alt={session?.user?.name ?? "Profile"} 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  initials
+                )}
               </div>
               <div>
                 <div className="flex items-center gap-3 mb-1">
@@ -99,13 +111,12 @@ export default function InstructorDashboard() {
           </div>
         </div>
 
-        {/* Stat cards */}
         <div className="grid grid-cols-4 gap-4 mb-8">
           {[
             { label: "Total courses", value: courses.length, icon: <BookIcon />, color: "indigo" },
-            { label: "Published",     value: published,      icon: <CheckIcon />, color: "emerald" },
-            { label: "Total students",value: totalStudents,  icon: <UsersIcon />, color: "blue" },
-            { label: "Avg rating",    value: avgRating,      icon: <StarIcon />,  color: "amber" },
+            { label: "Published",     value: published,       icon: <CheckIcon />, color: "emerald" },
+            { label: "Total students",value: totalStudents,   icon: <UsersIcon />, color: "blue" },
+            { label: "Avg rating",    value: avgRating,       icon: <StarIcon />,  color: "amber" },
           ].map(({ label, value, icon, color }) => (
             <div key={label} className="bg-[#12121a] border border-white/[0.07] rounded-2xl p-5">
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-4 ${
@@ -120,7 +131,6 @@ export default function InstructorDashboard() {
           ))}
         </div>
 
-        {/* Course list */}
         <div>
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-bold tracking-tight">My courses</h2>
@@ -130,7 +140,9 @@ export default function InstructorDashboard() {
             <EmptyState />
           ) : (
             <div className="flex flex-col gap-3">
-              {courses.map((course) => <CourseRow key={course.id} course={course} />)}
+              {courses.map((course) => (
+                <CourseRow key={course.id} course={course} onDeleted={refetch} />
+              ))}
             </div>
           )}
         </div>
@@ -140,14 +152,25 @@ export default function InstructorDashboard() {
   );
 }
 
-// ── Course Row ────────────────────────────────────────────────────────────────
-function CourseRow({ course }: { course: Course }) {
+function CourseRow({ course, onDeleted }: { course: Course, onDeleted: () => void }) {
+  const [deleteCourse] = useMutation(DELETE_COURSE);
   const topicColor = TOPIC_COLORS[course.topic] ?? "bg-white/5 text-white/50 border-white/10";
+
+  const handleDelete = async () => {
+    if (window.confirm("Are you sure you want to delete this course? This action cannot be undone.")) {
+      try {
+        await deleteCourse({ variables: { id: course.id } });
+        onDeleted();
+      } catch (err) {
+        alert("Failed to delete course");
+      }
+    }
+  };
+
   return (
     <div className="group flex items-center gap-4 bg-[#12121a] hover:bg-[#16161f] border border-white/[0.07] rounded-2xl p-4 transition-colors">
       <div className="w-24 h-14 rounded-xl overflow-hidden shrink-0 bg-[#1e1e2e] flex items-center justify-center">
         {course.thumbnail ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
         ) : (
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/20">
@@ -187,25 +210,24 @@ function CourseRow({ course }: { course: Course }) {
 
       <div className="shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
         <Link
-          href={`/courses/${course.id}`}
+          href={`/editCourse/${course.id}`}
           className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           Edit
         </Link>
-        <Link
-          href={`/courses/${course.id}`}
-          className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors"
+        <button
+          onClick={handleDelete}
+          className="flex items-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors"
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          View
-        </Link>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+          Delete
+        </button>
       </div>
     </div>
   );
 }
 
-// ── Empty State ───────────────────────────────────────────────────────────────
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-20 bg-[#12121a] border border-dashed border-white/[0.08] rounded-2xl">
@@ -227,7 +249,6 @@ function EmptyState() {
   );
 }
 
-// ── Skeleton ──────────────────────────────────────────────────────────────────
 function DashboardSkeleton() {
   return (
     <div className="min-h-screen bg-[#0a0a0f]">
@@ -244,7 +265,6 @@ function DashboardSkeleton() {
   );
 }
 
-// ── Icons ─────────────────────────────────────────────────────────────────────
 const BookIcon = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>);
 const CheckIcon = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>);
 const UsersIcon = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>);
