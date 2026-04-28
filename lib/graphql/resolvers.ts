@@ -227,31 +227,51 @@ export const resolvers = {
       });
       return await course.save();
     },
-    updateCourse: async (_: unknown, { id, lessons, ...rest }: any) => {
-      try {
-        const updatedCourse = await Course.findByIdAndUpdate(
-          id,
-          { $set: rest },
-          { new: true }
-        );
+    updateCourse: async (_: any, { id, lessons, ...rest }: any) => {
+  try {
+    // Step 1: Update course fields (title, description, price etc.)
+    const updatedCourse = await Course.findByIdAndUpdate(
+      id,
+      { $set: rest },
+      { new: true }
+    );
 
-        if (lessons) {
-          await Lesson.deleteMany({ course: id });
-          const createdLessons = await Lesson.insertMany(
-            lessons.map((lesson: any, index: number) => ({
-              ...lesson,
-              course: id,
-              order: index + 1
-            }))
-          );
-          updatedCourse.lessons = createdLessons.map(l => l._id);
-          await updatedCourse.save();
-        }
-        return updatedCourse;
-      } catch (error) {
-        throw new Error("Database update failed");
-      }
-    },
+    if (!updatedCourse) throw new Error("Course not found");
+
+    // Step 2: If lessons were sent, replace them all
+    if (lessons && lessons.length >= 0) {
+      // Delete old lesson documents
+      await Lesson.deleteMany({ course: id });
+
+      // Create new lesson documents with the S3 videoUrls
+      const createdLessons = await Lesson.insertMany(
+        lessons.map((lesson: any, index: number) => ({
+          title: lesson.title,
+          videoUrl: lesson.videoUrl,   // ← this is your S3 URL
+          description: lesson.description || "",
+          duration: lesson.duration || 0,
+          order: index + 1,
+          isFree: lesson.isFree || false,
+          isQuiz: lesson.isQuiz || false,
+          course: id,
+        }))
+      );
+
+      // Step 3: Save the new lesson IDs back to the course
+      // Use findByIdAndUpdate here — NOT .save() on a stale object
+      await Course.findByIdAndUpdate(id, {
+        $set: { lessons: createdLessons.map((l: any) => l._id) }
+      });
+    }
+
+    // Return the fully populated course
+    return await Course.findById(id).populate("lessons").populate("sections");
+
+  } catch (error) {
+    console.error("updateCourse error:", error);
+    throw new Error("Failed to update course");
+  }
+},
     publishCourse: async (_: unknown, { id }: { id: string }) =>
       await Course.findByIdAndUpdate(id, { isPublished: true }, { new: true }),
     unpublishCourse: async (_: unknown, { id }: { id: string }) =>
