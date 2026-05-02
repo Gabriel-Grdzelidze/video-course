@@ -20,11 +20,6 @@ export const GET_COURSES = gql`
       instructor {
         name
       }
-      sections {
-        lessons {
-          id
-        }
-      }
     }
   }
 `;
@@ -307,11 +302,11 @@ export const GET_COURSE_BY_ID = gql`
 `;
 export const GET_ALL_USERS = gql`
   query GetAllUsers {
-    getAllUsers {
+    getUsers {
       id
       name
       email
-      image
+      avatar
     }
   }
 `;

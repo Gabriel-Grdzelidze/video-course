@@ -29,21 +29,7 @@ export const resolvers = {
       await Instructor.find({ isApproved: false }).populate("user"),
 
     getCourses: async () => {
-      const courses = await Course.find().populate('instructor');
-      return Promise.all(
-        courses.map(async (course) => {
-          const sections = await Section.find({ course: course._id })
-            .sort({ order: 1 })
-            .populate('lessons');
-          const obj = course.toObject();
-          return { 
-            ...obj, 
-            id: course._id,
-            instructor: obj.instructor?._id ? obj.instructor : null,
-            sections 
-          };
-        })
-      );
+      return await Course.find().populate("instructor");
     },
     getPublishedCourses: async () => await Course.find({ isPublished: true }),
     getCourse: async (_: unknown, { slug }: { slug: string }) =>
@@ -229,7 +215,7 @@ export const resolvers = {
     },
     updateCourse: async (_: any, { id, lessons, ...rest }: any) => {
   try {
-    // Step 1: Update course fields (title, description, price etc.)
+   
     const updatedCourse = await Course.findByIdAndUpdate(
       id,
       { $set: rest },
@@ -238,9 +224,9 @@ export const resolvers = {
 
     if (!updatedCourse) throw new Error("Course not found");
 
-    // Step 2: If lessons were sent, replace them all
+  
     if (lessons && lessons.length >= 0) {
-      // Delete old lesson documents
+   
       await Lesson.deleteMany({ course: id });
 
       // Create new lesson documents with the S3 videoUrls
@@ -257,15 +243,14 @@ export const resolvers = {
         }))
       );
 
-      // Step 3: Save the new lesson IDs back to the course
-      // Use findByIdAndUpdate here — NOT .save() on a stale object
+     
       await Course.findByIdAndUpdate(id, {
         $set: { lessons: createdLessons.map((l: any) => l._id) }
       });
     }
 
     // Return the fully populated course
-    return await Course.findById(id).populate("lessons").populate("sections");
+    return await Course.findById(id).populate("lessons");
 
   } catch (error) {
     console.error("updateCourse error:", error);

@@ -42,6 +42,7 @@ export const UPDATE_COURSE = gql`
     $level: String
     $isPublished: Boolean
     $tags: [String]
+    $lessons: [LessonInput]
   ) {
     updateCourse(
       id: $id
@@ -54,6 +55,7 @@ export const UPDATE_COURSE = gql`
       level: $level
       isPublished: $isPublished
       tags: $tags
+      lessons: $lessons
     ) {
       id
       title

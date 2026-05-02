@@ -13,6 +13,8 @@ export const typeDefs = gql`
     github: String
   }
 
+  
+
   type PayoutInfo {
     method: String
     details: String
@@ -229,17 +231,18 @@ signUpInstructor(
       tags: [String]
     ): Course
     updateCourse(
-      id: ID!
-      title: String
-      description: String
-      thumbnail: String
-      price: Float
-      isFree: Boolean
-      topic: String
-      level: String
-      isPublished: Boolean
-      tags: [String]
-    ): Course
+  id: ID!
+  title: String
+  description: String
+  thumbnail: String
+  price: Float
+  isFree: Boolean
+  topic: String
+  level: String
+  isPublished: Boolean
+  tags: [String]
+  lessons: [LessonInput]
+): Course
     publishCourse(id: ID!): Course
     unpublishCourse(id: ID!): Course
     deleteCourse(id: ID!): String
@@ -319,5 +322,15 @@ signUpInstructor(
     question: String!
     options: [String!]!
     correctIndex: Int!
+  }
+
+  input LessonInput {
+    title: String!
+    description: String
+    videoUrl: String
+    duration: Int
+    order: Int
+    isFree: Boolean
+    isQuiz: Boolean
   }
 `;

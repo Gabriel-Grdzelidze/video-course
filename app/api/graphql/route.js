@@ -13,13 +13,10 @@ const server = new ApolloServer({
   plugins: [ApolloServerPluginLandingPageLocalDefault({ embeddable: true })],
 });
 
-await server.start();
-
 const handler = startServerAndCreateNextHandler(server, {
   context: async () => {
     await connect();
     const session = await auth();
-    console.log("session:", session); // check your terminal
     return { user: session?.user ?? null };
   },
 });

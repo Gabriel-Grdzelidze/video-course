@@ -32,6 +32,61 @@ const GET_COURSE_FOR_EDIT = gql`
   }
 `;
 
+const CREATE_SECTION = gql`
+  mutation CreateSection($title: String!, $order: Int!, $courseId: ID!) {
+    createSection(title: $title, order: $order, courseId: $courseId) {
+      id
+      title
+      order
+    }
+  }
+`;
+
+const DELETE_SECTION = gql`
+  mutation DeleteSection($id: ID!) {
+    deleteSection(id: $id)
+  }
+`;
+
+const CREATE_LESSON = gql`
+  mutation CreateLesson(
+    $title: String!
+    $videoUrl: String
+    $order: Int!
+    $courseId: ID!
+    $sectionId: ID!
+  ) {
+    createLesson(
+      title: $title
+      videoUrl: $videoUrl
+      order: $order
+      courseId: $courseId
+      sectionId: $sectionId
+    ) {
+      id
+      title
+      videoUrl
+      order
+    }
+  }
+`;
+
+const DELETE_LESSON = gql`
+  mutation DeleteLesson($id: ID!) {
+    deleteLesson(id: $id)
+  }
+`;
+
+const UPDATE_LESSON = gql`
+  mutation UpdateLesson($id: ID!, $title: String, $videoUrl: String) {
+    updateLesson(id: $id, title: $title, videoUrl: $videoUrl) {
+      id
+      title
+      videoUrl
+    }
+  }
+`;
+
 const UPDATE_COURSE = gql`
   mutation UpdateCourse(
     $id: ID!
@@ -43,8 +98,6 @@ const UPDATE_COURSE = gql`
     $topic: String
     $level: String
     $isPublished: Boolean
-    $tags: [String]
-    $lessons: [LessonInput]
   ) {
     updateCourse(
       id: $id
@@ -56,8 +109,6 @@ const UPDATE_COURSE = gql`
       topic: $topic
       level: $level
       isPublished: $isPublished
-      tags: $tags
-      lessons: $lessons
     ) {
       id
       title
@@ -70,7 +121,9 @@ export default function InstructorEditPage() {
   const { id } = useParams();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState<string | null>(null);
+  const [sections, setSections] = useState<any[]>([]);
+  const [previewVideo, setPreviewVideo] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     title: "",
@@ -83,14 +136,17 @@ export default function InstructorEditPage() {
     isPublished: false,
   });
 
-  const [lessons, setLessons] = useState<any[]>([]);
-
-  const { data, loading } = useQuery(GET_COURSE_FOR_EDIT, {
+  const { data, loading, refetch } = useQuery(GET_COURSE_FOR_EDIT, {
     variables: { id },
     fetchPolicy: "network-only",
   });
 
   const [updateCourse] = useMutation(UPDATE_COURSE);
+  const [createSection] = useMutation(CREATE_SECTION);
+  const [deleteSection] = useMutation(DELETE_SECTION);
+  const [createLesson] = useMutation(CREATE_LESSON);
+  const [deleteLesson] = useMutation(DELETE_LESSON);
+  const [updateLesson] = useMutation(UPDATE_LESSON);
 
   useEffect(() => {
     if (data?.getCourseById) {
@@ -105,68 +161,148 @@ export default function InstructorEditPage() {
         level: course.level || "Beginner",
         isPublished: course.isPublished || false,
       });
-
-      if (data.getSectionsByCourse) {
-        const flattenedLessons = data.getSectionsByCourse
-          .flatMap((section: any) => section.lessons)
-          .map((l: any) => ({
-            id: l.id,
-            title: l.title,
-            videoUrl: l.videoUrl,
-            order: l.order,
-          }))
-          .sort((a: any, b: any) => a.order - b.order);
-        setLessons(flattenedLessons);
-      }
+    }
+    if (data?.getSectionsByCourse) {
+      setSections(
+        [...data.getSectionsByCourse].sort((a: any, b: any) => a.order - b.order)
+      );
     }
   }, [data]);
 
   const handleFileUpload = async (
     file: File,
     type: "thumbnail" | "video",
-    index?: number,
+    lessonId?: string,
+    sectionId?: string,
   ) => {
     if (!file) return;
-    setUploading(true);
+    setUploading(lessonId || "thumbnail");
     try {
       const res = await fetch("/api/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileName: file.name, fileType: file.type }),
       });
-
       const { uploadUrl, fileUrl } = await res.json();
       await fetch(uploadUrl, { method: "PUT", body: file });
 
       if (type === "thumbnail") {
         setForm((prev) => ({ ...prev, thumbnail: fileUrl }));
-      } else if (type === "video" && index !== undefined) {
-        const updated = [...lessons];
-        updated[index] = { ...updated[index], videoUrl: fileUrl };
-        setLessons(updated);
+      } else if (type === "video" && lessonId && sectionId) {
+        // If lesson already exists in DB, update it
+        if (!lessonId.startsWith("new-")) {
+          await updateLesson({ variables: { id: lessonId, videoUrl: fileUrl } });
+          await refetch();
+        } else {
+          // Update local state for new unsaved lessons
+          setSections((prev) =>
+            prev.map((s) =>
+              s.id === sectionId
+                ? {
+                    ...s,
+                    lessons: s.lessons.map((l: any) =>
+                      l.id === lessonId ? { ...l, videoUrl: fileUrl } : l
+                    ),
+                  }
+                : s
+            )
+          );
+        }
       }
     } catch (err) {
       console.error("Upload error:", err);
     } finally {
-      setUploading(false);
+      setUploading(null);
     }
   };
 
-  const addLesson = () => {
-    setLessons([
-      ...lessons,
-      { title: "", videoUrl: "", order: lessons.length + 1 },
-    ]);
+  const handleAddSection = async () => {
+    const title = `Section ${sections.length + 1}`;
+    try {
+      const { data } = await createSection({
+        variables: { title, order: sections.length + 1, courseId: id },
+      });
+      setSections((prev) => [...prev, { ...data.createSection, lessons: [] }]);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const removeLesson = (index: number) => {
-    setLessons(lessons.filter((_, i) => i !== index));
+  const handleDeleteSection = async (sectionId: string) => {
+    try {
+      await deleteSection({ variables: { id: sectionId } });
+      setSections((prev) => prev.filter((s) => s.id !== sectionId));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const updateLessonTitle = (index: number, title: string) => {
-    const updated = [...lessons];
-    updated[index] = { ...updated[index], title };
-    setLessons(updated);
+  const handleUpdateSectionTitle = (sectionId: string, title: string) => {
+    setSections((prev) =>
+      prev.map((s) => (s.id === sectionId ? { ...s, title } : s))
+    );
+  };
+
+  const handleAddLesson = async (sectionId: string) => {
+    const section = sections.find((s) => s.id === sectionId);
+    const order = (section?.lessons?.length || 0) + 1;
+    try {
+      const { data } = await createLesson({
+        variables: {
+          title: `Lesson ${order}`,
+          order,
+          courseId: id,
+          sectionId,
+        },
+      });
+      setSections((prev) =>
+        prev.map((s) =>
+          s.id === sectionId
+            ? { ...s, lessons: [...(s.lessons || []), data.createLesson] }
+            : s
+        )
+      );
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteLesson = async (lessonId: string, sectionId: string) => {
+    try {
+      await deleteLesson({ variables: { id: lessonId } });
+      setSections((prev) =>
+        prev.map((s) =>
+          s.id === sectionId
+            ? { ...s, lessons: s.lessons.filter((l: any) => l.id !== lessonId) }
+            : s
+        )
+      );
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleUpdateLessonTitle = async (lessonId: string, sectionId: string, title: string) => {
+    setSections((prev) =>
+      prev.map((s) =>
+        s.id === sectionId
+          ? {
+              ...s,
+              lessons: s.lessons.map((l: any) =>
+                l.id === lessonId ? { ...l, title } : l
+              ),
+            }
+          : s
+      )
+    );
+  };
+
+  const handleSaveLessonTitle = async (lessonId: string, title: string) => {
+    try {
+      await updateLesson({ variables: { id: lessonId, title } });
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleSubmit = async () => {
@@ -183,11 +319,6 @@ export default function InstructorEditPage() {
           topic: form.topic,
           level: form.level,
           isPublished: form.isPublished,
-          lessons: lessons.map((l, i) => ({
-            title: l.title,
-            videoUrl: l.videoUrl,
-            order: i + 1,
-          })),
         },
       });
       router.push(`/instructor/me`);
@@ -207,6 +338,21 @@ export default function InstructorEditPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white p-6">
+      {previewVideo && (
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-8"
+          onClick={() => setPreviewVideo(null)}
+        >
+          <div className="w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-sm font-bold uppercase tracking-widest text-white/50">Preview</span>
+              <button onClick={() => setPreviewVideo(null)} className="text-white/50 hover:text-white text-2xl">✕</button>
+            </div>
+            <video src={previewVideo} controls autoPlay className="w-full rounded-2xl bg-black" />
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto space-y-8">
         <div className="flex justify-between items-center bg-[#12121a] p-6 rounded-2xl border border-white/5">
           <div>
@@ -222,25 +368,22 @@ export default function InstructorEditPage() {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={uploading || saving}
+              disabled={saving}
               className="px-8 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-all text-sm font-bold shadow-lg shadow-indigo-500/20"
             >
-              {uploading ? "Uploading..." : saving ? "Saving..." : "Save Changes"}
+              {saving ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
+            {/* General Info */}
             <div className="bg-[#12121a] border border-white/5 p-8 rounded-3xl space-y-6">
-              <h2 className="text-xl font-semibold border-b border-white/5 pb-4">
-                General Info
-              </h2>
+              <h2 className="text-xl font-semibold border-b border-white/5 pb-4">General Info</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="text-[11px] uppercase text-white/30 font-bold ml-1">
-                    Title
-                  </label>
+                  <label className="text-[11px] uppercase text-white/30 font-bold ml-1">Title</label>
                   <input
                     className="w-full bg-[#0a0a0f] border border-white/10 rounded-xl p-4 focus:border-indigo-500 outline-none"
                     value={form.title}
@@ -248,9 +391,7 @@ export default function InstructorEditPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] uppercase text-white/30 font-bold ml-1">
-                    Description
-                  </label>
+                  <label className="text-[11px] uppercase text-white/30 font-bold ml-1">Description</label>
                   <textarea
                     rows={4}
                     className="w-full bg-[#0a0a0f] border border-white/10 rounded-xl p-4 focus:border-indigo-500 outline-none resize-none"
@@ -260,9 +401,7 @@ export default function InstructorEditPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[11px] uppercase text-white/30 font-bold ml-1 block mb-2">
-                      Topic
-                    </label>
+                    <label className="text-[11px] uppercase text-white/30 font-bold ml-1 block mb-2">Topic</label>
                     <select
                       className="w-full bg-[#0a0a0f] border border-white/10 rounded-xl p-4 focus:border-indigo-500 outline-none"
                       value={form.topic}
@@ -277,9 +416,7 @@ export default function InstructorEditPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-[11px] uppercase text-white/30 font-bold ml-1 block mb-2">
-                      Level
-                    </label>
+                    <label className="text-[11px] uppercase text-white/30 font-bold ml-1 block mb-2">Level</label>
                     <select
                       className="w-full bg-[#0a0a0f] border border-white/10 rounded-xl p-4 focus:border-indigo-500 outline-none"
                       value={form.level}
@@ -294,88 +431,133 @@ export default function InstructorEditPage() {
               </div>
             </div>
 
+            {/* Curriculum */}
             <div className="bg-[#12121a] border border-white/5 p-8 rounded-3xl space-y-6">
               <div className="flex justify-between items-center border-b border-white/5 pb-4">
                 <h2 className="text-xl font-semibold">Curriculum</h2>
                 <button
-                  onClick={addLesson}
+                  onClick={handleAddSection}
                   className="px-4 py-2 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20 hover:bg-indigo-500/20 transition-all text-xs font-bold"
                 >
-                  + New Lesson
+                  + New Section
                 </button>
               </div>
-              <div className="space-y-4">
-                {lessons.map((lesson, index) => (
-                  <div
-                    key={index}
-                    className="bg-[#0a0a0f] border border-white/10 p-5 rounded-2xl group transition-all hover:border-indigo-500/30"
-                  >
-                    <div className="flex items-center gap-4 mb-4">
-                      <span className="text-white/20 font-mono text-sm">
-                        #{index + 1}
-                      </span>
+
+              {sections.length === 0 && (
+                <div className="text-center py-12 text-white/20 text-sm">
+                  No sections yet. Click "+ New Section" to get started.
+                </div>
+              )}
+
+              <div className="space-y-6">
+                {sections.map((section) => (
+                  <div key={section.id} className="border border-white/10 rounded-2xl overflow-hidden">
+                    {/* Section Header */}
+                    <div className="flex items-center gap-3 bg-white/5 px-5 py-4">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/30 shrink-0">
+                        <path d="M4 6h16M4 12h16M4 18h16" />
+                      </svg>
                       <input
-                        className="flex-1 bg-transparent border-none outline-none text-sm font-semibold"
-                        placeholder="Lesson Name"
-                        value={lesson.title}
-                        onChange={(e) => updateLessonTitle(index, e.target.value)}
+                        className="flex-1 bg-transparent outline-none font-semibold text-sm"
+                        value={section.title}
+                        onChange={(e) => handleUpdateSectionTitle(section.id, e.target.value)}
+                        onBlur={async (e) => {
+                          // optionally save section title on blur via mutation if you have updateSection
+                        }}
                       />
                       <button
-                        onClick={() => removeLesson(index)}
-                        className="text-white/20 hover:text-red-500 transition-colors"
+                        onClick={() => handleAddLesson(section.id)}
+                        className="text-[10px] text-indigo-400 border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 rounded-lg hover:bg-indigo-500/20 font-bold uppercase"
                       >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        + Lesson
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSection(section.id)}
+                        className="text-white/20 hover:text-red-500 transition-colors ml-1"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
                         </svg>
                       </button>
                     </div>
-                    <div className="flex items-center gap-4 pl-10">
-                      <label className="cursor-pointer text-[10px] bg-white/5 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 font-bold uppercase tracking-widest">
-                        {lesson.videoUrl ? "Change Video" : "Select Video"}
-                        <input
-                          type="file"
-                          accept="video/*"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (file) await handleFileUpload(file, "video", index);
-                          }}
-                        />
-                      </label>
-                      {lesson.videoUrl && (
-                        <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                          <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                          Video Ready
-                        </span>
+
+                    {/* Lessons */}
+                    <div className="divide-y divide-white/5">
+                      {(!section.lessons || section.lessons.length === 0) && (
+                        <div className="px-5 py-4 text-white/20 text-xs text-center">
+                          No lessons. Click "+ Lesson" to add one.
+                        </div>
                       )}
+                      {section.lessons?.map((lesson: any) => (
+                        <div key={lesson.id} className="px-5 py-4 bg-[#0a0a0f]">
+                          <div className="flex items-center gap-3 mb-3">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/20 shrink-0">
+                              <circle cx="12" cy="12" r="10" />
+                              <polygon points="10 8 16 12 10 16 10 8" fill="currentColor" />
+                            </svg>
+                            <input
+                              className="flex-1 bg-transparent outline-none text-sm"
+                              value={lesson.title}
+                              onChange={(e) => handleUpdateLessonTitle(lesson.id, section.id, e.target.value)}
+                              onBlur={(e) => handleSaveLessonTitle(lesson.id, e.target.value)}
+                            />
+                            <button
+                              onClick={() => handleDeleteLesson(lesson.id, section.id)}
+                              className="text-white/20 hover:text-red-500 transition-colors"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                              </svg>
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-3 pl-5">
+                            <label className="cursor-pointer text-[10px] bg-white/5 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 font-bold uppercase tracking-widest">
+                              {uploading === lesson.id ? "Uploading..." : lesson.videoUrl ? "Change Video" : "Upload Video"}
+                              <input
+                                type="file"
+                                accept="video/*"
+                                className="hidden"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) await handleFileUpload(file, "video", lesson.id, section.id);
+                                }}
+                              />
+                            </label>
+                            {lesson.videoUrl && (
+                              <>
+                                <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                                  Video Ready
+                                </span>
+                                <button
+                                  onClick={() => setPreviewVideo(lesson.videoUrl)}
+                                  className="text-[10px] text-indigo-400 border border-indigo-500/20 px-3 py-1.5 rounded-lg hover:bg-indigo-500/10 font-bold uppercase"
+                                >
+                                  Preview
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
-                {lessons.length === 0 && (
-                  <div className="text-center py-12 text-white/20 text-sm">
-                    No lessons yet. Click "+ New Lesson" to add one.
-                  </div>
-                )}
               </div>
             </div>
           </div>
 
+          {/* Settings */}
           <div className="space-y-6">
             <div className="bg-[#12121a] border border-white/5 p-8 rounded-3xl space-y-6">
-              <h2 className="text-xl font-semibold border-b border-white/5 pb-4">
-                Settings
-              </h2>
+              <h2 className="text-xl font-semibold border-b border-white/5 pb-4">Settings</h2>
               <div>
-                <label className="text-[11px] uppercase text-white/30 font-bold ml-1 block mb-3">
-                  Thumbnail
-                </label>
+                <label className="text-[11px] uppercase text-white/30 font-bold ml-1 block mb-3">Thumbnail</label>
                 <div className="relative aspect-video rounded-2xl overflow-hidden bg-[#0a0a0f] border border-white/10 group">
                   {form.thumbnail ? (
                     <img src={form.thumbnail} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-white/10 text-xs">
-                      No Image
-                    </div>
+                    <div className="w-full h-full flex items-center justify-center text-white/10 text-xs">No Image</div>
                   )}
                   <label className="absolute inset-0 flex items-center justify-center bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-xs font-bold uppercase">
                     Replace
@@ -408,19 +590,13 @@ export default function InstructorEditPage() {
                     className="w-5 h-5 accent-emerald-500"
                     checked={form.isFree}
                     onChange={(e) =>
-                      setForm({
-                        ...form,
-                        isFree: e.target.checked,
-                        price: e.target.checked ? 0 : form.price,
-                      })
+                      setForm({ ...form, isFree: e.target.checked, price: e.target.checked ? 0 : form.price })
                     }
                   />
                 </div>
                 {!form.isFree && (
                   <div className="bg-[#0a0a0f] p-4 rounded-xl border border-white/5">
-                    <label className="text-[10px] text-white/30 uppercase block mb-1">
-                      Price (USD)
-                    </label>
+                    <label className="text-[10px] text-white/30 uppercase block mb-1">Price (USD)</label>
                     <input
                       type="number"
                       className="bg-transparent border-none text-xl font-bold w-full outline-none"
