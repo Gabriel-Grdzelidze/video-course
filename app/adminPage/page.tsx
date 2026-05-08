@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import Users from "../components/dashboard/Users";
-import Courses from "../components/dashboard/Courses";
-import Overview from "../components/dashboard/Overview";
+import Overview from "./Overview";
+import Users from "./Users";
+import Courses from "./Courses";
+import Admins from "./Admins";
 
 const NAV = [
-  { id: "overview", label: "Overview", icon: "▦" },
-  { id: "users", label: "Users", icon: "👥" },
-  { id: "courses", label: "Courses", icon: "🎬" },
+  { id: "overview", label: "Dashboard", sub: "Statistics" },
+  { id: "users", label: "Members", sub: "User Management" },
+  { id: "courses", label: "Curriculum", sub: "Content List" },
+  { id: "admins", label: "Authority", sub: "Admin Access" },
 ];
 
 export default function AdminDashboard() {
@@ -18,43 +20,86 @@ export default function AdminDashboard() {
 
   if (status === "loading") {
     return (
-      <div style={{ minHeight: "100vh", background: "#0d0d1a", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p style={{ color: "#606080" }}>Loading...</p>
+      <div className="min-h-screen bg-[#05050a] flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
       </div>
     );
   }
 
   if ((session?.user as any)?.role !== "admin") {
     return (
-      <div style={{ minHeight: "100vh", background: "#0d0d1a", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p style={{ color: "red" }}>Access denied.</p>
+      <div className="min-h-screen bg-[#05050a] flex items-center justify-center p-6">
+        <div className="text-center">
+          <p className="text-red-400 font-bold text-sm tracking-widest uppercase mb-2">Unauthorized</p>
+          <p className="text-zinc-500 text-xs">This area is restricted to system administrators.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0d0d1a", color: "#e0e0f0", fontFamily: "'Inter', sans-serif", display: "flex" }}>
-      <aside style={{ width: 220, flexShrink: 0, background: "#0f0f20", borderRight: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "100vh" }}>
-        <div style={{ padding: "1.5rem 1.25rem", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <p style={{ color: "#6d63ff", fontWeight: 800, fontSize: "1.1rem", margin: 0 }}>• LearnFlow</p>
-          <p style={{ color: "#505070", fontSize: "0.72rem", margin: "4px 0 0", textTransform: "uppercase" }}>Admin Panel</p>
+    <div className="min-h-screen bg-[#05050a] text-zinc-400 flex font-sans selection:bg-indigo-500/30">
+      
+      {/* Sidebar */}
+      <aside className="w-64 shrink-0 bg-[#080810] border-r border-white/[0.03] flex flex-col sticky top-0 h-screen">
+        <div className="px-8 py-10">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-6 h-6 bg-indigo-600 rounded-lg shadow-[0_0_15px_rgba(79,70,229,0.4)]" />
+            <span className="text-white font-black tracking-tighter text-xl">FLOW</span>
+          </div>
+          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.3em] ml-1">Central Command</p>
         </div>
-        <nav style={{ padding: "1rem 0.75rem", flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-          {NAV.map(item => (
-            <button key={item.id} onClick={() => setActive(item.id)} style={{ background: active === item.id ? "rgba(109,99,255,0.18)" : "transparent", border: "none", borderLeft: active === item.id ? "3px solid #6d63ff" : "3px solid transparent", borderRadius: "8px", color: active === item.id ? "#fff" : "#606080", padding: "0.65rem 1rem", textAlign: "left", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, fontSize: "0.85rem", fontWeight: active === item.id ? 700 : 400 }}>
-              <span>{item.icon}</span>{item.label}
+
+        <nav className="flex-1 px-4 space-y-1">
+          {NAV.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActive(item.id)}
+              className={`
+                w-full group flex flex-col items-start px-4 py-3 rounded-xl transition-all duration-200
+                ${active === item.id 
+                  ? "bg-white/[0.03] border border-white/[0.05]" 
+                  : "hover:bg-white/[0.01] border border-transparent"
+                }
+              `}
+            >
+              <span className={`text-sm font-bold transition-colors ${active === item.id ? "text-indigo-400" : "text-zinc-500 group-hover:text-zinc-300"}`}>
+                {item.label}
+              </span>
+              <span className="text-[10px] text-zinc-600 font-medium">{item.sub}</span>
             </button>
           ))}
         </nav>
-        <div style={{ padding: "1rem 1.25rem", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-          <p style={{ color: "#505070", fontSize: "0.75rem", margin: 0 }}>Logged in as</p>
-          <p style={{ color: "#a0a0c0", fontSize: "0.82rem", fontWeight: 600, margin: "2px 0 0" }}>{session?.user?.name}</p>
+
+        <div className="p-6 mt-auto">
+          <div className="bg-white/[0.02] border border-white/[0.03] rounded-2xl p-4">
+            <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-2">Current Session</p>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center text-[10px] font-bold text-indigo-400 border border-indigo-500/20 uppercase">
+                {session?.user?.name?.[0]}
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-xs font-bold text-zinc-200 truncate">{session?.user?.name}</p>
+                <p className="text-[10px] text-zinc-600 truncate">Administrator</p>
+              </div>
+            </div>
+          </div>
         </div>
       </aside>
-      <main style={{ flex: 1, overflowY: "auto", padding: "2rem 2.5rem" }}>
-        {active === "overview" && <Overview />}
-        {active === "users" && <Users />}
-        {active === "courses" && <Courses />}
+
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-6xl mx-auto px-12 py-16">
+          
+          {/* Transition wrapper */}
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-700">
+            {active === "overview" && <Overview />}
+            {active === "users" && <Users />}
+            {active === "courses" && <Courses />}
+            {active === "admins" && <Admins />}
+          </div>
+
+        </div>
       </main>
     </div>
   );

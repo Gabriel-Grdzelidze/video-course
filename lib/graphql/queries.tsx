@@ -1,4 +1,4 @@
-import { gql } from "@apollo/client";
+
 
 export const GET_COURSES = gql`
   query GetCourses {
@@ -144,6 +144,30 @@ export const GET_LESSONS_BY_COURSE = gql`
       isFree
       isQuiz
       section
+    }
+  }
+`;
+
+import { gql } from "@apollo/client";
+
+export const GET_PLATFORM_USERS = gql`
+  query GetPlatformUsers {
+    getUsers {
+      id
+      name
+      email
+      avatar
+    }
+    getInstructors {
+      id
+      user {
+        id
+        name
+        email
+        avatar
+      }
+      bio
+      isApproved
     }
   }
 `;

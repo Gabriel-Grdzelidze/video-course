@@ -98,6 +98,9 @@ export const resolvers = {
       const courses = await Course.find({ instructor: context.user.id });
       return courses;
     },
+    getAdmins: async () => await Admin.find({}).populate("user"),
+getAdmin: async (_: unknown, { id }: { id: string }) =>
+  await Admin.findById(id).populate("user"),
 
     getReviewsByCourse: async (
       _: unknown,
