@@ -75,9 +75,13 @@ export default function AdminDashboard() {
           <div className="bg-white/[0.02] border border-white/[0.03] rounded-2xl p-4">
             <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-2">Current Session</p>
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center text-[10px] font-bold text-indigo-400 border border-indigo-500/20 uppercase">
-                {session?.user?.name?.[0]}
-              </div>
+             <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center text-[10px] font-bold text-indigo-400 border border-indigo-500/20 uppercase overflow-hidden">
+  {(session?.user as any)?.avatar ? (
+    <img src={(session?.user as any)?.avatar} className="w-full h-full object-cover" alt="" />
+  ) : (
+    session?.user?.name?.[0]
+  )}
+</div>
               <div className="overflow-hidden">
                 <p className="text-xs font-bold text-zinc-200 truncate">{session?.user?.name}</p>
                 <p className="text-[10px] text-zinc-600 truncate">Administrator</p>
