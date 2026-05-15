@@ -138,7 +138,7 @@ export default function InstructorEditPage() {
     isPublished: false,
   });
 
-  const { data, loading, refetch } = useQuery(GET_COURSE_FOR_EDIT, {
+  const { data, loading, refetch } = useQuery<{ getCourseById: typeof form; getSectionsByCourse: any[] }>(GET_COURSE_FOR_EDIT, {
     variables: { id },
     fetchPolicy: "network-only",
   });
