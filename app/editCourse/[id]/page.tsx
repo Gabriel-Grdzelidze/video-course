@@ -265,10 +265,8 @@ export default function InstructorEditPage() {
   const handleAddSection = async () => {
     const title = `Section ${sections.length + 1}`;
     try {
-      const { data: sectionData } = await createSection({
-        variables: { title, order: sections.length + 1, courseId: id },
-      });
-      setSections((prev) => [...prev, { ...sectionData.createSection, lessons: [] }]);
+      const { data: sectionData } = await createSection({}) as { data: { createSection: any } };
+      setSections((prev) => [...prev, { ...(sectionData as any).createSection, lessons: [] }]);
     } catch (err) {
       console.error(err);
     }
