@@ -5,7 +5,7 @@ const nextConfig = {
       "course-dem.s3.eu-north-1.amazonaws.com",
     ],
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config: any, { isServer }: { isServer: boolean }) => {
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
