@@ -133,7 +133,7 @@ const sections: Section[] = ((data as any)?.getSectionsByCourse ?? [])
         variables: {
           userId,
           courseId: id,
-          paidAmount: course.isFree ? 0 : course.price,
+          paidAmount: course?.isFree ? 0 : course?.price ?? 0,
         },
       });
       refetchEnroll();
