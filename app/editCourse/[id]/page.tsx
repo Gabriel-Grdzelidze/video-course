@@ -265,10 +265,10 @@ export default function InstructorEditPage() {
   const handleAddSection = async () => {
     const title = `Section ${sections.length + 1}`;
     try {
-      const { data } = await createSection({
+      const { data: sectionData } = await createSection({
         variables: { title, order: sections.length + 1, courseId: id },
       });
-      setSections((prev) => [...prev, { ...data.createSection, lessons: [] }]);
+      setSections((prev) => [...prev, { ...sectionData.createSection, lessons: [] }]);
     } catch (err) {
       console.error(err);
     }
@@ -293,7 +293,7 @@ export default function InstructorEditPage() {
     const section = sections.find((s) => s.id === sectionId);
     const order = (section?.lessons?.length || 0) + 1;
     try {
-      const { data } = await createLesson({
+      const { data: lessonData } = await createLesson({
         variables: {
           title: `Lesson ${order}`,
           order,
@@ -304,7 +304,7 @@ export default function InstructorEditPage() {
       setSections((prev) =>
         prev.map((s) =>
           s.id === sectionId
-            ? { ...s, lessons: [...(s.lessons || []), data.createLesson] }
+            ? { ...s, lessons: [...(s.lessons || []), lessonData.createLesson] }
             : s
         )
       );
