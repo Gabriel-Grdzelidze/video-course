@@ -265,8 +265,10 @@ export default function InstructorEditPage() {
   const handleAddSection = async () => {
     const title = `Section ${sections.length + 1}`;
     try {
-      const { data: sectionData } = await createSection({}) as { data: { createSection: any } };
-      setSections((prev) => [...prev, { ...(sectionData as any).createSection, lessons: [] }]);
+      const result = await createSection({
+        variables: { title, order: sections.length + 1, courseId: id },
+      });
+      setSections((prev) => [...prev, { ...(result.data as any).createSection, lessons: [] }]);
     } catch (err) {
       console.error(err);
     }
@@ -291,7 +293,7 @@ export default function InstructorEditPage() {
     const section = sections.find((s) => s.id === sectionId);
     const order = (section?.lessons?.length || 0) + 1;
     try {
-      const { data: lessonData } = await createLesson({
+      const result = await createLesson({
         variables: {
           title: `Lesson ${order}`,
           order,
@@ -302,7 +304,7 @@ export default function InstructorEditPage() {
       setSections((prev) =>
         prev.map((s) =>
           s.id === sectionId
-            ? { ...s, lessons: [...(s.lessons || []), lessonData.createLesson] }
+            ? { ...s, lessons: [...(s.lessons || []), (result.data as any).createLesson] }
             : s
         )
       );
@@ -310,7 +312,6 @@ export default function InstructorEditPage() {
       console.error(err);
     }
   };
-
   const handleDeleteLesson = async (lessonId: string, sectionId: string) => {
     try {
       await deleteLesson({ variables: { id: lessonId } });
