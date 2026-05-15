@@ -52,12 +52,12 @@ export default function LearnPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
-  const { data, loading } = useQuery(GET_LEARN_DATA, { variables: { id }, skip: !id });
-  const { data: enrollData } = useQuery(IS_ENROLLED, {
+  const { data, loading } = useQuery<{ getCourseById: Course; getSectionsByCourse: Section[] }>(GET_LEARN_DATA, { variables: { id }, skip: !id });
+  const { data: enrollData } = useQuery<{ isEnrolled: boolean }>(IS_ENROLLED, {
     variables: { userId, courseId: id },
     skip: !userId,
   });
-  const { data: progressData, refetch: refetchProgress } = useQuery(GET_PROGRESS, {
+  const { data: progressData, refetch: refetchProgress } = useQuery<{ getProgress: { completedLessons: string[]; completionPercentage: number; lastWatchedLesson?: string } }>(GET_PROGRESS, {
     variables: { userId, courseId: id },
     skip: !userId,
   });
