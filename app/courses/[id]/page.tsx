@@ -98,8 +98,8 @@ export default function CourseDetailPage() {
   });
   const [enrollUser] = useMutation(ENROLL_USER);
 
-  const course: Course | undefined = data?.getCourseById;
-  const sections: Section[] = (data?.getSectionsByCourse ?? [])
+  const course: Course | undefined = (data as any)?.getCourseById;
+const sections: Section[] = ((data as any)?.getSectionsByCourse ?? [])
     .slice()
     .sort((a: Section, b: Section) => a.order - b.order);
   const isEnrolled: boolean = enrollData?.isEnrolled ?? false;
