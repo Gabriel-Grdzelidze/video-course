@@ -123,7 +123,7 @@ export default function LearnPage() {
         try {
           await updateProgress({ 
             variables: { userId, courseId: id, lessonId: lesson.id },
-            ignoreResults: true,
+            
           });
         } catch (e) {
           // ignore
@@ -136,7 +136,7 @@ export default function LearnPage() {
       try {
         await markLessonComplete({ 
           variables: { userId, courseId: id, lessonId: activeLesson.id },
-          ignoreResults: true,
+        
         });
       } catch (e) {
         // ignore
