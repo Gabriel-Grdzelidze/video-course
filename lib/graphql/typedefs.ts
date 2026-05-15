@@ -91,6 +91,7 @@ export const typeDefs = gql`
     isQuiz: Boolean!
     course: ID!
     section: ID!
+    subtitleUrl: String
   }
 
   type Question {
@@ -264,14 +265,15 @@ signUpInstructor(
       sectionId: ID!
     ): Lesson
     updateLesson(
-      id: ID!
-      title: String
-      description: String
-      videoUrl: String
-      duration: Int
-      order: Int
-      isFree: Boolean
-    ): Lesson
+  id: ID!
+  title: String
+  description: String
+  videoUrl: String
+  subtitleUrl: String
+  duration: Int
+  order: Int
+  isFree: Boolean
+): Lesson
     deleteLesson(id: ID!): String
 
     createQuiz(

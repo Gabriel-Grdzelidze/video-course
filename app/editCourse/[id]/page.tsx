@@ -78,11 +78,12 @@ const DELETE_LESSON = gql`
 `;
 
 const UPDATE_LESSON = gql`
-  mutation UpdateLesson($id: ID!, $title: String, $videoUrl: String) {
-    updateLesson(id: $id, title: $title, videoUrl: $videoUrl) {
+  mutation UpdateLesson($id: ID!, $title: String, $videoUrl: String, $subtitleUrl: String) {
+    updateLesson(id: $id, title: $title, videoUrl: $videoUrl, subtitleUrl: $subtitleUrl) {
       id
       title
       videoUrl
+      subtitleUrl
     }
   }
 `;
@@ -124,6 +125,7 @@ export default function InstructorEditPage() {
   const [uploading, setUploading] = useState<string | null>(null);
   const [sections, setSections] = useState<any[]>([]);
   const [previewVideo, setPreviewVideo] = useState<string | null>(null);
+  const [transcribing, setTranscribing] = useState<Record<string, "processing" | "completed" | "error">>({});
 
   const [form, setForm] = useState({
     title: "",
@@ -189,12 +191,56 @@ export default function InstructorEditPage() {
       if (type === "thumbnail") {
         setForm((prev) => ({ ...prev, thumbnail: fileUrl }));
       } else if (type === "video" && lessonId && sectionId) {
-        // If lesson already exists in DB, update it
         if (!lessonId.startsWith("new-")) {
           await updateLesson({ variables: { id: lessonId, videoUrl: fileUrl } });
           await refetch();
+        
+          setTranscribing((prev) => ({ ...prev, [lessonId]: "processing" }));
+
+          fetch("/api/transcribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ videoUrl: fileUrl, lessonId }),
+          }).then(r => r.json()).then(({ transcriptId }) => {
+            if (!transcriptId) {
+              setTranscribing((prev) => ({ ...prev, [lessonId]: "error" }));
+              return;
+            }
+            console.log("Transcription started:", transcriptId);
+            const poll = setInterval(async () => {
+              const res = await fetch(`/api/transcribe?transcriptId=${transcriptId}`).then(r => r.json());
+              console.log("Transcription status:", res.status);
+              if (res.status === "completed" && res.vtt) {
+                clearInterval(poll);
+                const blob = new Blob([res.vtt], { type: "text/vtt" });
+                const uploadRes = await fetch("/api/upload", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ fileName: `${lessonId}.vtt`, fileType: "text/vtt" }),
+                }).then(r => r.json());
+                await fetch(uploadRes.uploadUrl, { method: "PUT", body: blob });
+                await updateLesson({ variables: { id: lessonId, subtitleUrl: uploadRes.fileUrl } });
+                console.log("Subtitles saved:", uploadRes.fileUrl);
+                
+                setTranscribing((prev) => ({ ...prev, [lessonId]: "completed" }));
+                setTimeout(() => {
+                  setTranscribing((prev) => {
+                    const copy = { ...prev };
+                    delete copy[lessonId];
+                    return copy;
+                  });
+                }, 4000);
+
+              } else if (res.status === "error") {
+                clearInterval(poll);
+                console.error("Transcription failed");
+                setTranscribing((prev) => ({ ...prev, [lessonId]: "error" }));
+              }
+            }, 10000);
+          }).catch(() => {
+            setTranscribing((prev) => ({ ...prev, [lessonId]: "error" }));
+          });
         } else {
-          // Update local state for new unsaved lessons
           setSections((prev) =>
             prev.map((s) =>
               s.id === sectionId
@@ -378,7 +424,6 @@ export default function InstructorEditPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            {/* General Info */}
             <div className="bg-[#12121a] border border-white/5 p-8 rounded-3xl space-y-6">
               <h2 className="text-xl font-semibold border-b border-white/5 pb-4">General Info</h2>
               <div className="space-y-4">
@@ -431,7 +476,6 @@ export default function InstructorEditPage() {
               </div>
             </div>
 
-            {/* Curriculum */}
             <div className="bg-[#12121a] border border-white/5 p-8 rounded-3xl space-y-6">
               <div className="flex justify-between items-center border-b border-white/5 pb-4">
                 <h2 className="text-xl font-semibold">Curriculum</h2>
@@ -452,7 +496,6 @@ export default function InstructorEditPage() {
               <div className="space-y-6">
                 {sections.map((section) => (
                   <div key={section.id} className="border border-white/10 rounded-2xl overflow-hidden">
-                    {/* Section Header */}
                     <div className="flex items-center gap-3 bg-white/5 px-5 py-4">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/30 shrink-0">
                         <path d="M4 6h16M4 12h16M4 18h16" />
@@ -461,9 +504,7 @@ export default function InstructorEditPage() {
                         className="flex-1 bg-transparent outline-none font-semibold text-sm"
                         value={section.title}
                         onChange={(e) => handleUpdateSectionTitle(section.id, e.target.value)}
-                        onBlur={async (e) => {
-                          // optionally save section title on blur via mutation if you have updateSection
-                        }}
+                        onBlur={async (e) => {}}
                       />
                       <button
                         onClick={() => handleAddLesson(section.id)}
@@ -481,7 +522,6 @@ export default function InstructorEditPage() {
                       </button>
                     </div>
 
-                    {/* Lessons */}
                     <div className="divide-y divide-white/5">
                       {(!section.lessons || section.lessons.length === 0) && (
                         <div className="px-5 py-4 text-white/20 text-xs text-center">
@@ -537,6 +577,26 @@ export default function InstructorEditPage() {
                                 </button>
                               </>
                             )}
+
+                            {transcribing[lesson.id] === "processing" && (
+                              <span className="text-[10px] text-amber-400 font-bold uppercase tracking-widest flex items-center gap-1 ml-auto animate-pulse">
+                                <svg className="animate-spin h-3 w-3 text-amber-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Transcribing Audio...
+                              </span>
+                            )}
+                            {transcribing[lesson.id] === "completed" && (
+                              <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest flex items-center gap-1 ml-auto">
+                                ✓ Captions Generated
+                              </span>
+                            )}
+                            {transcribing[lesson.id] === "error" && (
+                              <span className="text-[10px] text-red-400 font-bold uppercase tracking-widest flex items-center gap-1 ml-auto">
+                                ✕ Transcription Failed
+                              </span>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -547,7 +607,6 @@ export default function InstructorEditPage() {
             </div>
           </div>
 
-          {/* Settings */}
           <div className="space-y-6">
             <div className="bg-[#12121a] border border-white/5 p-8 rounded-3xl space-y-6">
               <h2 className="text-xl font-semibold border-b border-white/5 pb-4">Settings</h2>

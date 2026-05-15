@@ -115,10 +115,25 @@ export const SIGN_IN = gql`
 `;
 
 export const SIGN_UP_USER = gql`
-  mutation SignUpUser($name: String!, $email: String!, $password: String!, $avatar: String) {
-    signUpUser(name: $name, email: $email, password: $password, avatar: $avatar) {
+  mutation SignUpUser(
+    $name: String!
+    $email: String!
+    $password: String!
+    $avatar: String
+  ) {
+    signUpUser(
+      name: $name
+      email: $email
+      password: $password
+      avatar: $avatar
+    ) {
       token
-      user { id name email avatar }
+      user {
+        id
+        name
+        email
+        avatar
+      }
     }
   }
 `;
@@ -143,7 +158,12 @@ export const SIGN_UP_INSTRUCTOR = gql`
       expertise: $expertise
     ) {
       token
-      user { id name email avatar }
+      user {
+        id
+        name
+        email
+        avatar
+      }
     }
   }
 `;
@@ -212,25 +232,19 @@ export const UPDATE_LESSON = gql`
   mutation UpdateLesson(
     $id: ID!
     $title: String
-    $description: String
     $videoUrl: String
-    $duration: Int
-    $order: Int
-    $isFree: Boolean
+    $subtitleUrl: String
   ) {
     updateLesson(
       id: $id
       title: $title
-      description: $description
       videoUrl: $videoUrl
-      duration: $duration
-      order: $order
-      isFree: $isFree
+      subtitleUrl: $subtitleUrl
     ) {
       id
       title
       videoUrl
-      duration
+      subtitleUrl
     }
   }
 `;
@@ -293,8 +307,18 @@ export const UNENROLL_USER = gql`
 `;
 
 export const CREATE_REVIEW = gql`
-  mutation CreateReview($userId: ID!, $courseId: ID!, $rating: Int!, $comment: String!) {
-    createReview(userId: $userId, courseId: $courseId, rating: $rating, comment: $comment) {
+  mutation CreateReview(
+    $userId: ID!
+    $courseId: ID!
+    $rating: Int!
+    $comment: String!
+  ) {
+    createReview(
+      userId: $userId
+      courseId: $courseId
+      rating: $rating
+      comment: $comment
+    ) {
       id
       rating
       comment
@@ -337,15 +361,16 @@ export const MARK_LESSON_COMPLETE = gql`
     markLessonComplete(userId: $userId, courseId: $courseId, lessonId: $lessonId) {
       id
       completedLessons
+      lastWatchedLesson
       completionPercentage
     }
   }
 `;
-
 export const UPDATE_PROGRESS = gql`
   mutation UpdateProgress($userId: ID!, $courseId: ID!, $lessonId: ID!, $seconds: Int) {
     updateProgress(userId: $userId, courseId: $courseId, lessonId: $lessonId, seconds: $seconds) {
       id
+      completedLessons
       lastWatchedLesson
       completionPercentage
     }
@@ -353,28 +378,28 @@ export const UPDATE_PROGRESS = gql`
 `;
 
 export const GET_COURSE_FOR_EDIT = gql`
-query GetCourseForEdit($id: ID!) {
-  getCourseById(id: $id) {
-    id
-    title
-    description
-    thumbnail
-    price
-    isFree
-    topic
-    level
-    isPublished
-  }
-  getSectionsByCourse(courseId: $id) {
-    id
-    title
-    order
-    lessons {
+  query GetCourseForEdit($id: ID!) {
+    getCourseById(id: $id) {
       id
       title
-      videoUrl
+      description
+      thumbnail
+      price
+      isFree
+      topic
+      level
+      isPublished
+    }
+    getSectionsByCourse(courseId: $id) {
+      id
+      title
       order
+      lessons {
+        id
+        title
+        videoUrl
+        order
+      }
     }
   }
-}
 `;

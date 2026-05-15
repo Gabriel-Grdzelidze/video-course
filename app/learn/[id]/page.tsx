@@ -15,8 +15,8 @@ const GET_LEARN_DATA = gql`
     getSectionsByCourse(courseId: $id) {
       id title order
       lessons {
-        id title videoUrl duration order isFree isQuiz description
-      }
+  id title videoUrl subtitleUrl duration order isFree isQuiz description
+}
     }
   }
 `;
@@ -31,6 +31,7 @@ interface Lesson {
   id: string; title: string; videoUrl?: string;
   duration?: number; order: number; isFree: boolean;
   isQuiz: boolean; description?: string;
+  subtitleUrl?: string;
 }
 interface Section {
   id: string; title: string; order: number; lessons: Lesson[];
@@ -61,8 +62,12 @@ export default function LearnPage() {
     skip: !userId,
   });
 
-  const [markLessonComplete] = useMutation(MARK_LESSON_COMPLETE);
-  const [updateProgress] = useMutation(UPDATE_PROGRESS);
+  const [markLessonComplete] = useMutation(MARK_LESSON_COMPLETE, {
+    fetchPolicy: "no-cache",
+  });
+  const [updateProgress] = useMutation(UPDATE_PROGRESS, {
+    fetchPolicy: "no-cache",
+  });
 
   const course: Course | undefined = data?.getCourseById;
   const sections: Section[] = (data?.getSectionsByCourse ?? [])
@@ -72,7 +77,7 @@ export default function LearnPage() {
   const completionPct: number = progressData?.getProgress?.completionPercentage ?? 0;
 
   const allLessons = sections.flatMap(s =>
-    s.lessons.slice().sort((a, b) => a.order - b.order)
+    (s.lessons ?? []).filter(Boolean).slice().sort((a, b) => a.order - b.order)
   );
 
   // set first lesson on load
@@ -107,31 +112,41 @@ export default function LearnPage() {
       return s;
     });
 
-  const handleSelectLesson = async (lesson: Lesson) => {
-    setActiveLesson(lesson);
-    // expand parent section
-    sections.forEach(s => {
-      if (s.lessons.find(l => l.id === lesson.id)) {
-        setExpandedSections(prev => new Set([...prev, s.id]));
+    const handleSelectLesson = async (lesson: Lesson) => {
+      setActiveLesson(lesson);
+      sections.forEach(s => {
+        if (s.lessons.find(l => l.id === lesson.id)) {
+          setExpandedSections(prev => new Set([...prev, s.id]));
+        }
+      });
+      if (userId) {
+        try {
+          await updateProgress({ 
+            variables: { userId, courseId: id, lessonId: lesson.id },
+            ignoreResults: true,
+          });
+        } catch (e) {
+          // ignore
+        }
+        refetchProgress();
       }
-    });
-    // track last watched
-    if (userId) {
-      await updateProgress({ variables: { userId, courseId: id, lessonId: lesson.id } });
+    };
+    const handleMarkComplete = async () => {
+      if (!activeLesson || !userId) return;
+      try {
+        await markLessonComplete({ 
+          variables: { userId, courseId: id, lessonId: activeLesson.id },
+          ignoreResults: true,
+        });
+      } catch (e) {
+        // ignore
+      }
       refetchProgress();
-    }
-  };
-
-  const handleMarkComplete = async () => {
-    if (!activeLesson || !userId) return;
-    await markLessonComplete({ variables: { userId, courseId: id, lessonId: activeLesson.id } });
-    refetchProgress();
-    // auto advance to next lesson
-    const idx = allLessons.findIndex(l => l.id === activeLesson.id);
-    if (idx < allLessons.length - 1) {
-      handleSelectLesson(allLessons[idx + 1]);
-    }
-  };
+      const idx = allLessons.findIndex(l => l.id === activeLesson.id);
+      if (idx < allLessons.length - 1) {
+        handleSelectLesson(allLessons[idx + 1]);
+      }
+    };
 
   const handleTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
     const video = e.currentTarget;
@@ -213,12 +228,23 @@ export default function LearnPage() {
           <div className="w-full bg-black aspect-video">
             {activeLesson?.videoUrl ? (
               <video
-                key={activeLesson.id}
-                src={activeLesson.videoUrl}
-                controls
-                className="w-full h-full"
-                onTimeUpdate={handleTimeUpdate}
-              />
+              key={activeLesson.id}
+              src={activeLesson.videoUrl}
+              controls
+              className="w-full h-full"
+              onTimeUpdate={handleTimeUpdate}
+              crossOrigin="anonymous"
+            >
+              {activeLesson.subtitleUrl && (
+                <track
+                  kind="subtitles"
+                  src={activeLesson.subtitleUrl}
+                  srcLang="en"
+                  label="English"
+                  default
+                />
+              )}
+            </video>
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center gap-3">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="text-white/10">
