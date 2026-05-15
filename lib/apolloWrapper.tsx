@@ -8,7 +8,7 @@
   export default function ApolloWrapper({ children }: { children: React.ReactNode }) {
     const client = useMemo(() => {
       const errorLink = onError(({ graphQLErrors, networkError }: any) => {
-        if (graphQLErrors) graphQLErrors.forEach(({ message }) => console.error("GraphQL error:", message));
+        if (graphQLErrors) graphQLErrors.forEach(({ message }: any) => console.error("GraphQL error:", message));
         if (networkError) console.error("Network error:", networkError);
       });
 
