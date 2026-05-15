@@ -67,7 +67,7 @@ export default function ProfilePage() {
   const userId = (session?.user as { id?: string })?.id
   const isInstructor = (session?.user as { role?: string })?.role === 'instructor'
 
-  const { data, loading, refetch } = useQuery(GET_PROFILE, {
+  const { data, loading, refetch } = useQuery<{ getUser: any; getInstructorByUser: any; getEnrollmentsByUser: any[] }>(GET_PROFILE, {
     variables: { userId },
     skip: !userId,
   })
@@ -188,7 +188,7 @@ export default function ProfilePage() {
 
 // ══ INSTRUCTOR COURSES ═══════════════════════════════════════════════════════
 function InstructorCourses({ onEdit, refetchProfile }: { onEdit:(c:Course)=>void; refetchProfile:()=>void }) {
-  const { data, loading, refetch } = useQuery(GET_INSTRUCTOR_COURSES)
+  const { data, loading, refetch } = useQuery<{ getCourses: Course[] }>(GET_INSTRUCTOR_COURSES)
   const [publishCourse] = useMutation(PUBLISH_COURSE)
   const [unpublishCourse] = useMutation(UNPUBLISH_COURSE)
   const [deleteCourse] = useMutation(DELETE_COURSE)
@@ -444,8 +444,8 @@ function CourseEditorDrawer({ course, onClose, onSaved }: { course:Course; onClo
   // ── sections ──────────────────────────────────────────────────────────────
   const handleAddSection = async () => {
     if (!newSectionTitle.trim()) return
-    const { data } = await createSection({ variables: { title: newSectionTitle.trim(), order: sections.length, courseId: course.id } })
-    setSections((prev) => [...prev, { ...data.createSection, lessons: [] }])
+    const result = await createSection({ variables: { title: newSectionTitle.trim(), order: sections.length, courseId: course.id } })
+    setSections((prev) => [...prev, { ...(result.data as any).createSection, lessons: [] }])
     setNewSectionTitle(''); setAddingSection(false)
   }
 
@@ -458,7 +458,7 @@ function CourseEditorDrawer({ course, onClose, onSaved }: { course:Course; onClo
   // ── lessons ───────────────────────────────────────────────────────────────
   const handleAddLesson = async (sectionId: string, order: number) => {
     if (!lessonForm.title.trim()) return
-    const { data } = await createLesson({
+    const result = await createLesson({
       variables: {
         title: lessonForm.title.trim(),
         videoUrl: lessonForm.videoUrl || null,
@@ -471,7 +471,7 @@ function CourseEditorDrawer({ course, onClose, onSaved }: { course:Course; onClo
       }
     })
     setSections((prev) => prev.map((s) =>
-      s.id === sectionId ? { ...s, lessons: [...s.lessons, data.createLesson] } : s
+      s.id === sectionId ? { ...s, lessons: [...s.lessons, (result.data as any).createLesson] } : s
     ))
     setLessonForm({ title:'', videoUrl:'', duration:'', isFree:false })
     setAddingLessonTo(null)
