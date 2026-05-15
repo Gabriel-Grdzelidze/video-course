@@ -21,5 +21,10 @@ const handler = startServerAndCreateNextHandler(server, {
   },
 });
 
-export const GET = handler;
-export const POST = handler;
+export async function GET(request) {
+  return handler(request);
+}
+
+export async function POST(request) {
+  return handler(request);
+}
