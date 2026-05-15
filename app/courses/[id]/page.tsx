@@ -92,7 +92,7 @@ export default function CourseDetailPage() {
   const [enrolling, setEnrolling] = useState(false);
 
   const { data, loading } = useQuery(GET_COURSE, { variables: { id } });
-  const { data: enrollData, refetch: refetchEnroll } = useQuery(IS_ENROLLED, {
+  const { data: enrollData, refetch: refetchEnroll } = useQuery<{ isEnrolled: boolean }>(IS_ENROLLED, {
     variables: { userId, courseId: id },
     skip: !userId,
   });
@@ -102,7 +102,7 @@ export default function CourseDetailPage() {
 const sections: Section[] = ((data as any)?.getSectionsByCourse ?? [])
     .slice()
     .sort((a: Section, b: Section) => a.order - b.order);
-    const isEnrolled: boolean = (enrollData as { isEnrolled?: boolean } | undefined)?.isEnrolled ?? false;
+    const isEnrolled: boolean = enrollData?.isEnrolled ?? false;
 
   const totalLessons = sections.reduce(
     (acc: number, s: Section) => acc + s.lessons.length,
