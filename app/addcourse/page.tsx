@@ -20,6 +20,12 @@ function toSlug(str: string) {
     .replace(/-+/g, "-");
 }
 
+interface CreateCourseResult {
+  createCourse: {
+    id: string;
+  };
+}
+
 export default function NewCoursePage() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -45,7 +51,7 @@ export default function NewCoursePage() {
     isFree: true,
   });
 
-  const [createCourse, { loading }] = useMutation(CREATE_COURSE);
+  const [createCourse, { loading }] = useMutation<CreateCourseResult>(CREATE_COURSE);
 
   const set = (key: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
