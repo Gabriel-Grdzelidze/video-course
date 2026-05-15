@@ -32,12 +32,12 @@ export default function InstructorDashboard() {
   const { data: session } = useSession();
   const userId = (session?.user as { id?: string })?.id;
 
-  const { data: instructorData, loading: l1 } = useQuery(GET_INSTRUCTOR_INFO, {
+  const { data: instructorData, loading: l1 } = useQuery<{ getInstructorByUser: any }>(GET_INSTRUCTOR_INFO, {
     variables: { userId },
     skip: !userId,
   });
 
-  const { data: coursesData, loading: l2, refetch } = useQuery(GET_MY_COURSES);
+  const { data: coursesData, loading: l2, refetch } = useQuery<{ getInstructorCourses: Course[] }>(GET_MY_COURSES);
 
   const instructor = instructorData?.getInstructorByUser;
   const courses: Course[] = coursesData?.getInstructorCourses ?? [];
