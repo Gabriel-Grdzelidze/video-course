@@ -102,7 +102,7 @@ export default function CourseDetailPage() {
 const sections: Section[] = ((data as any)?.getSectionsByCourse ?? [])
     .slice()
     .sort((a: Section, b: Section) => a.order - b.order);
-  const isEnrolled: boolean = enrollData?.isEnrolled ?? false;
+    const isEnrolled: boolean = (enrollData as { isEnrolled?: boolean } | undefined)?.isEnrolled ?? false;
 
   const totalLessons = sections.reduce(
     (acc: number, s: Section) => acc + s.lessons.length,
